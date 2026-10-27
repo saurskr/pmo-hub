@@ -11,7 +11,7 @@
   } catch (e) { location.href = '/login.html'; return; }
 
   const onAdmin = location.pathname.endsWith('admin.html');
-  const TABS = [['', 'Summary'], ['project', 'Projects'], ['vendor', 'Vendors'], ['roadmap', 'Roadmap']];
+  const TABS = [['', 'Summary'], ['project', 'Projects'], ['vendor', 'Vendors'], ['roadmap', 'Roadmap'], ['quickwin', 'Quick Wins']];
   const currentTab = () => location.hash.slice(1);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const tabLink = ([id, text]) => `<a href="/#${id}" data-tab="${id}"${!onAdmin && currentTab() === id ? ' aria-current="page"' : ''}>${text}</a>`;

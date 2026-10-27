@@ -26,8 +26,8 @@ const GLYPH = {
   done:       '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 8.2l2.2 2.2 3.8-4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
 };
 
-const TYPES = { project: 'Project', vendor: 'Vendor', roadmap: 'Roadmap' };
-const TAB_TITLES = { '': 'Summary', project: 'Projects', vendor: 'Vendors', roadmap: 'Roadmap' };
+const TYPES = { project: 'Project', vendor: 'Vendor', roadmap: 'Roadmap', quickwin: 'Quick Win' };
+const TAB_TITLES = { '': 'Summary', project: 'Projects', vendor: 'Vendors', roadmap: 'Roadmap', quickwin: 'Quick Wins' };
 
 const DEFAULT_LABELS = ['Update', 'Decision', 'Risk', 'Blocker', 'Action', 'Question', 'FYI'];
 const LABEL_COLORS = {
@@ -137,7 +137,16 @@ function seed() {
   const msp = mk({ name: 'Managed print provider', type: 'vendor', team: 'End User Services', status: 'ontrack', start: d(-200), end: d(160),
     summary: 'Service levels met for the last two quarters.' },
     [[15, 'Update', 'Quarterly service review held; no open escalations.']]);
-  return { items: [erp, erpData, erpUat, sec, vendor, msp, helpdesk, mfa, dr], labels: DEFAULT_LABELS.slice() };
+  const ai = mk({ name: 'AI adoption program', type: 'roadmap', team: 'IT Leadership', status: 'notstarted', start: d(30), end: d(300),
+    summary: 'Not yet an official project; agree scope and sponsor first.',
+    details: 'Idea: structured program to help teams adopt AI tooling safely.\n\nOpen questions: sponsor, budget, policy owner.' },
+    [[4, 'Question', 'Who owns the AI usage policy — Security or Legal?']]);
+  const qw1 = mk({ name: 'Automate new-starter laptop checklist', type: 'quickwin', team: 'End User Services', status: 'ontrack', start: d(-5), end: d(9),
+    summary: 'About 12 hours; script drafted, needs testing.' },
+    [[2, 'Update', 'Draft script works for Windows; Mac version next.']]);
+  const qw2 = mk({ name: 'Remove unused SaaS licences', type: 'quickwin', team: 'IT Operations', status: 'notstarted', start: d(7), end: d(21),
+    summary: 'About 6 hours; export usage report and cancel dormant seats.' });
+  return { items: [erp, erpData, erpUat, sec, vendor, msp, helpdesk, mfa, dr, ai, qw1, qw2], labels: DEFAULT_LABELS.slice() };
 }
 
 const byId = id => state.items.find(i => i.id === id);
