@@ -7,24 +7,7 @@ const STALE_DAYS = 14;
 
 /* ---------- status & labels ---------- */
 
-const STATUSES = {
-  offtrack:   { label: 'Off track',   color: 'var(--red)',   rank: 0 },
-  atrisk:     { label: 'At risk',     color: 'var(--amber)', rank: 1 },
-  ontrack:    { label: 'On track',    color: 'var(--green)', rank: 2 },
-  onhold:     { label: 'On hold',     color: 'var(--blue)',  rank: 3 },
-  notstarted: { label: 'Not started', color: 'var(--grey)',  rank: 4 },
-  done:       { label: 'Done',        color: 'var(--done)',  rank: 5 },
-};
-
-// Each status has its own glyph so it never relies on colour alone.
-const GLYPH = {
-  offtrack:   '<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M5.3 5.3l5.4 5.4M10.7 5.3l-5.4 5.4" class="cut" stroke-width="1.8" stroke-linecap="round"/>',
-  atrisk:     '<path d="M8 1.2l7 12.6H1z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6v3.6M8 11.4v.2" class="cut" stroke-width="1.7" stroke-linecap="round"/>',
-  ontrack:    '<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.2l2.3 2.3 4.2-4.6" fill="none" class="cut" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
-  onhold:     '<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M6.2 5.2v5.6M9.8 5.2v5.6" class="cut" stroke-width="1.9" stroke-linecap="round"/>',
-  notstarted: '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.4 2"/>',
-  done:       '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 8.2l2.2 2.2 3.8-4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
-};
+const { STATUSES, statusIcon } = window.PMOStatus; // defined in status.js
 
 const TYPES = { project: 'Project', vendor: 'Vendor', roadmap: 'Roadmap', quickwin: 'Quick Win' };
 const TAB_TITLES = { '': 'Summary', project: 'Projects', vendor: 'Vendors', roadmap: 'Roadmap', quickwin: 'Quick Wins' };
@@ -38,12 +21,6 @@ const LABEL_COLORS = {
   Update: 'var(--blue)', Decision: 'var(--purple)', Risk: 'var(--amber)', Blocker: 'var(--red)',
   Action: 'var(--green)', Question: 'var(--pink)', FYI: 'var(--muted)',
 };
-
-function statusIcon(s, size = 18) {
-  const st = STATUSES[s] || STATUSES.notstarted;
-  return `<span class="sic" style="color:${st.color}" title="${st.label}" role="img" aria-label="${st.label}">` +
-    `<svg width="${size}" height="${size}" viewBox="0 0 16 16" aria-hidden="true">${GLYPH[s] || GLYPH.notstarted}</svg></span>`;
-}
 
 function labelColor(l) {
   if (LABEL_COLORS[l]) return LABEL_COLORS[l];
@@ -76,7 +53,11 @@ function ageDays(iso) { return Math.floor((Date.now() - new Date(iso).getTime())
 /* ---------- state ---------- */
 
 let state = { items: [], labels: DEFAULT_LABELS.slice() }; // filled by init() from the server
-const hashType = () => { const h = location.hash.slice(1); return TYPES[h] ? h : ''; };
+// The address looks like #vendor (a tab) or #vendor/<id> (a tab with that entry open).
+const hashParts = () => location.hash.slice(1).split('/');
+const hashType = () => { const t = hashParts()[0]; return TYPES[t] ? t : ''; };
+const hashId = () => hashParts()[1] || '';
+window.pmoHasData = true; // tells shell.js it doesn't need to fetch the entries for the sidebar
 let detailsOpen = true; // remembered across entries and visits
 try { detailsOpen = localStorage.getItem('pmo-hub-details-open') !== '0'; } catch (e) { /* ignore */ }
 const peekText = s => (s || '').split('\n').find(l => l.trim()) || 'No detailed notes yet';
@@ -185,6 +166,7 @@ async function init() {
     save();
   }
   renderAll();
+  openFromHash();
   if (!hasPending()) setSaveStatus('saved', storageName);
 }
 let storageName = '';
@@ -512,15 +494,23 @@ function renderGantt() {
 
 function openDrawer(id, focusName = false) {
   ui.openId = id; ui.noteLabel = '';
+  if (window.pmoNav) pmoNav.setActive(id);
   renderDrawer();
   $('#drawer').hidden = false; $('#scrim').hidden = false;
   if (focusName) { const n = $('#d-name'); n.focus(); n.select(); }
 }
-function closeDrawer() {
+function closeDrawer(keepHash = false) {
   ui.openId = null;
   $('#drawer').hidden = true; $('#scrim').hidden = true;
+  if (window.pmoNav) pmoNav.setActive(null);
+  // Drop the entry id from the address so the same entry can be opened again from the sidebar.
+  if (!keepHash && hashId()) history.replaceState(null, '', location.pathname + '#' + hashType());
   cleanupBlank();
   renderAll();
+}
+function openFromHash() {
+  const id = hashId();
+  if (id && byId(id) && ui.openId !== id) openDrawer(id);
 }
 // Drop a just-created entry that was never filled in.
 function cleanupBlank() {
@@ -624,12 +614,15 @@ function renderAll() {
   document.querySelector('.top h1').textContent = TAB_TITLES[ui.type];
   document.title = `${TAB_TITLES[ui.type]} – PMO Hub`;
   renderFocus(); renderStats(); renderFilters(); renderList(); renderGantt();
+  window.pmoItems = state.items; // for a sidebar that finishes loading after the data does
+  if (window.pmoNav) pmoNav.update(state.items);
 }
 
 window.addEventListener('hashchange', () => {
-  if (ui.openId) closeDrawer();
+  if (ui.openId) closeDrawer(true);
   ui.type = hashType(); ui.status = '';
   renderAll();
+  openFromHash();
 });
 
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
@@ -679,7 +672,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.openId 
 const drawer = $('#drawer');
 drawer.addEventListener('input', e => {
   const it = byId(ui.openId); if (!it) return;
-  if (e.target.id === 'd-name') { it.name = e.target.value; touch(it); renderList(); renderGantt(); return; }
+  if (e.target.id === 'd-name') { it.name = e.target.value; touch(it); renderList(); renderGantt(); syncNav(); return; }
   const f = e.target.dataset.f;
   if (f === 'effort') { const n = parseFloat(e.target.value); it.effort = isNaN(n) ? '' : Math.max(0, n); touch(it); refreshSoft(); return; }
   if (f && ['summary', 'details', 'team', 'focusWhy'].includes(f)) {
@@ -709,7 +702,8 @@ drawer.addEventListener('change', e => {
     renderDrawerKeepComposer(l);
   }
 });
-function refreshSoft() { renderFocus(); renderStats(); renderList(); renderGantt(); }
+const syncNav = () => { if (window.pmoNav) pmoNav.update(state.items); };
+function refreshSoft() { renderFocus(); renderStats(); renderList(); renderGantt(); syncNav(); }
 function renderDrawerKeepComposer(label) {
   const text = $('#n-text').value;
   renderDrawer();

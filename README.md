@@ -22,6 +22,7 @@ node server.js add-user someone@example.com 'a-password' [admin]
 
 - `public/login.html` — sign-in (always light theme). Replace `public/logo.png` with your logo.
 - `public/index.html` — Summary (sidebar + page bar + content).
+  The sidebar lists Summary and the Projects / Vendors / Roadmap / Quick Wins tabs; each tab can be expanded to show its entries (click one to open it; the choice of which tabs are open is remembered). Entries have shareable addresses like `/#vendor/<id>`.
 - `public/admin.html` — Administration (admins only). Currently: SAML SSO settings.
 - `public/theme.css` — all colours and style tokens (light = Warm Paper, dark = Midnight).
 

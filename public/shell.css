@@ -4,7 +4,7 @@
 
 .side { width: 232px; flex: none; background: var(--head); color: var(--head-text); display: flex; flex-direction: column; padding: 16px 12px; gap: 16px; position: sticky; top: 0; height: 100vh; }
 .brand { font-size: 17px; font-weight: 700; padding: 4px 10px 8px; letter-spacing: .01em; }
-.side nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.side nav { display: flex; flex-direction: column; gap: 2px; flex: 1; min-height: 0; overflow-y: auto; }
 .side nav a { color: inherit; text-decoration: none; padding: 8px 10px; border-radius: var(--r-sm); opacity: .8; display: flex; gap: 10px; align-items: center; }
 .side nav hr { border: 0; border-top: 1px solid color-mix(in srgb, var(--head-text) 20%, transparent); margin: 8px 4px; width: calc(100% - 8px); }
 .side nav a:hover { opacity: 1; background: color-mix(in srgb, var(--head-text) 10%, transparent); }
@@ -62,3 +62,20 @@
 .tips ul { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
 .tips code, .card code { background: var(--surface-2); padding: 0 4px; border-radius: 4px; }
 .msg { white-space: pre-line; }
+
+/* collapsible entry lists in the sidebar */
+.nav-group { display: flex; flex-direction: column; }
+.nav-row { display: flex; align-items: stretch; gap: 2px; }
+.nav-row > a { flex: 1; min-width: 0; justify-content: space-between; }
+.nav-count { font-size: 12px; opacity: .75; font-weight: 400; }
+.nav-toggle { flex: none; width: 30px; background: transparent; border: 0; color: inherit; opacity: .7; border-radius: var(--r-sm); padding: 0; cursor: pointer; }
+.nav-toggle:hover { opacity: 1; background: color-mix(in srgb, var(--head-text) 10%, transparent); }
+.nav-toggle span { display: inline-block; transition: transform .15s; }
+.nav-toggle[aria-expanded="true"] span { transform: rotate(90deg); }
+.nav-items { list-style: none; margin: 2px 0 6px 12px; padding: 0 0 0 8px; border-left: 1px solid color-mix(in srgb, var(--head-text) 22%, transparent); display: flex; flex-direction: column; gap: 1px; }
+.side nav a.nav-item { padding: 5px 8px; font-size: 13px; gap: 8px; opacity: .85; }
+.nav-item .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-ic { display: inline-flex; flex: none; background: var(--surface); border-radius: 50%; padding: 1px; }
+.nav-item[aria-current="true"] { opacity: 1; background: color-mix(in srgb, var(--head-text) 18%, transparent); font-weight: 600; }
+.nav-empty { font-size: 12px; opacity: .6; padding: 4px 8px; }
+@media (max-width: 860px) { .nav-items, .nav-toggle { display: none; } .nav-count { display: none; } }
