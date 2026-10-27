@@ -99,7 +99,7 @@ function blankItem(over = {}) {
   const now = new Date().toISOString();
   return Object.assign({
     id: uid(), type: 'project', parentId: null, name: '', team: '', status: 'notstarted',
-    start: '', end: '', summary: '', details: '', notes: [], createdAt: now, updatedAt: now,
+    start: '', end: '', effort: '', summary: '', details: '', notes: [], createdAt: now, updatedAt: now,
   }, over);
 }
 
@@ -141,17 +141,20 @@ function seed() {
     summary: 'Not yet an official project; agree scope and sponsor first.',
     details: 'Idea: structured program to help teams adopt AI tooling safely.\n\nOpen questions: sponsor, budget, policy owner.' },
     [[4, 'Question', 'Who owns the AI usage policy — Security or Legal?']]);
-  const qw1 = mk({ name: 'Automate new-starter laptop checklist', type: 'quickwin', team: 'End User Services', status: 'ontrack', start: d(-5), end: d(9),
-    summary: 'About 12 hours; script drafted, needs testing.' },
+  const qw1 = mk({ name: 'Automate new-starter laptop checklist', type: 'quickwin', team: 'End User Services', status: 'ontrack', start: d(-5), end: d(9), effort: 12,
+    summary: 'Script drafted, needs testing.' },
     [[2, 'Update', 'Draft script works for Windows; Mac version next.']]);
-  const qw2 = mk({ name: 'Remove unused SaaS licences', type: 'quickwin', team: 'IT Operations', status: 'notstarted', start: d(7), end: d(21),
-    summary: 'About 6 hours; export usage report and cancel dormant seats.' });
+  const qw2 = mk({ name: 'Remove unused SaaS licences', type: 'quickwin', team: 'IT Operations', status: 'notstarted', start: d(7), end: d(21), effort: 6,
+    summary: 'Export usage report and cancel dormant seats.' });
   return { items: [erp, erpData, erpUat, sec, vendor, msp, helpdesk, mfa, dr, ai, qw1, qw2], labels: DEFAULT_LABELS.slice() };
 }
 
 const byId = id => state.items.find(i => i.id === id);
 const hasChildren = id => state.items.some(i => i.parentId === id);
 const lastNote = it => it.notes.length ? it.notes.reduce((a, b) => (a.at > b.at ? a : b)) : null;
+
+const fmtHours = n => `${Number(n)}h`;
+const hasEffort = it => it.effort !== '' && it.effort != null && !isNaN(Number(it.effort));
 
 function touch(it) { it.updatedAt = new Date().toISOString(); save(); }
 
@@ -239,7 +242,8 @@ function dateInfo(it) {
 function renderList() {
   const rows = visibleRows();
   const total = state.items.filter(i => !ui.type || i.type === ui.type).length;
-  $('#count').textContent = `${rows.length} of ${total}`;
+  const hours = rows.filter(r => r.it.type === 'quickwin' && hasEffort(r.it)).reduce((s, r) => s + Number(r.it.effort), 0);
+  $('#count').textContent = `${rows.length} of ${total}` + (ui.type === 'quickwin' && hours ? ` · ~${fmtHours(hours)} estimated` : '');
   if (!total) { $('#list').innerHTML = `<div class="empty">Nothing here yet. Add one with “+ New entry”.</div>`; return; }
   if (!rows.length) { $('#list').innerHTML = `<div class="empty">No entries match the current filters.</div>`; return; }
   $('#list').innerHTML = rows.map(({ it, child }) => {
@@ -249,7 +253,7 @@ function renderList() {
     return `<div class="row${child ? ' child' : ''}" data-id="${it.id}" tabindex="0" role="button">
       <div>${statusIcon(it.status)}</div>
       <div><div class="name">${esc(it.name || 'Untitled')}</div>
-        <div class="sub"><span class="tag">${TYPES[it.type]}</span>${it.team ? esc(it.team) : ''}${parent ? ` · in ${esc(parent.name)}` : ''}</div></div>
+        <div class="sub"><span class="tag">${TYPES[it.type]}</span>${it.team ? esc(it.team) : ''}${parent ? ` · in ${esc(parent.name)}` : ''}${it.type === 'quickwin' && hasEffort(it) ? ` · <b>~${fmtHours(it.effort)}</b>` : ''}</div></div>
       <div class="clamp">${it.summary ? esc(it.summary) : '<span class="muted">No summary yet</span>'}</div>
       <div class="dates">${dateInfo(it)}</div>
       <div>${n ? `${chip(n.label || 'Note')} <span class="muted">${ago(n.at)}</span><div class="clamp muted">${esc(n.text)}</div>` : '<span class="muted">No notes</span>'}
@@ -371,6 +375,7 @@ function renderDrawer() {
       <label>Team / owner<input data-f="team" value="${esc(it.team)}" list="teams" placeholder="e.g. Infrastructure"></label>
       <label>Part of<select data-f="parentId"${canNest ? '' : ' disabled'}>
         <option value="">— standalone —</option>${parents.map(p => `<option value="${p.id}"${it.parentId === p.id ? ' selected' : ''}>${esc(p.name || 'Untitled')}</option>`).join('')}</select></label>
+      ${it.type === 'quickwin' ? `<label>Estimated effort (hours)<input type="number" data-f="effort" min="0" step="0.5" inputmode="decimal" value="${esc(it.effort)}" placeholder="e.g. 12"></label>` : ''}
       <label>Start<input type="date" data-f="start" value="${esc(it.start)}"></label>
       <label>End<input type="date" data-f="end" value="${esc(it.end)}"></label>
       <label class="field full">Where it stands (one line)<input data-f="summary" maxlength="160" value="${esc(it.summary)}" placeholder="The one thing you need to know right now"></label>
@@ -486,12 +491,13 @@ drawer.addEventListener('input', e => {
   const it = byId(ui.openId); if (!it) return;
   if (e.target.id === 'd-name') { it.name = e.target.value; touch(it); renderList(); renderGantt(); return; }
   const f = e.target.dataset.f;
+  if (f === 'effort') { const n = parseFloat(e.target.value); it.effort = isNaN(n) ? '' : Math.max(0, n); touch(it); refreshSoft(); return; }
   if (f && ['summary', 'details', 'team'].includes(f)) { it[f] = e.target.value; touch(it); refreshSoft(); }
 });
 drawer.addEventListener('change', e => {
   const it = byId(ui.openId); if (!it) return;
   const f = e.target.dataset.f;
-  if (f && !['summary', 'details', 'team'].includes(f)) {
+  if (f && !['summary', 'details', 'team', 'effort'].includes(f)) {
     let v = e.target.value;
     if (f === 'parentId') v = v || null;
     it[f] = v;
@@ -501,6 +507,7 @@ drawer.addEventListener('change', e => {
       renderDrawer();
     }
     touch(it);
+    if (f === 'type') renderDrawer(); // effort field only applies to quick wins
     if (f === 'status') $('#d-icon').innerHTML = statusIcon(it.status, 24);
     renderAll();
   } else if (f === 'team') { renderAll(); }
