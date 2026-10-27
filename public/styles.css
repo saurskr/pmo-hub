@@ -97,6 +97,14 @@ button.chip.off { opacity: .45; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
 .grid2 label, .field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
 .field.full { grid-column: 1 / -1; }
+.collapsible > summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; list-style: none; user-select: none; }
+.collapsible > summary::-webkit-details-marker { display: none; }
+.collapsible > summary::before { content: "▸"; color: var(--muted); font-size: 12px; transition: transform .15s; display: inline-block; width: 12px; }
+.collapsible[open] > summary::before { transform: rotate(90deg); }
+.collapsible > summary h3 { margin: 0; }
+.collapsible > textarea { margin-top: 8px; width: 100%; }
+.peek { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.collapsible[open] .peek { display: none; }
 .d-section h3 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 textarea { resize: vertical; min-height: 100px; line-height: 1.5; }
 .composer { display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--surface-2); border-radius: var(--r); }

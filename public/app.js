@@ -73,6 +73,9 @@ function ageDays(iso) { return Math.floor((Date.now() - new Date(iso).getTime())
 
 let state = load() || seed();
 const hashType = () => { const h = location.hash.slice(1); return TYPES[h] ? h : ''; };
+let detailsOpen = true; // remembered across entries and visits
+try { detailsOpen = localStorage.getItem('pmo-hub-details-open') !== '0'; } catch (e) { /* ignore */ }
+const peekText = s => (s || '').split('\n').find(l => l.trim()) || 'No detailed notes yet';
 const ui = { type: hashType(), q: '', team: '', label: '', sort: 'attention', showDone: true, status: '', range: 'auto', openId: null, noteLabel: '' };
 
 function load() {
@@ -381,10 +384,10 @@ function renderDrawer() {
       <label class="field full">Where it stands (one line)<input data-f="summary" maxlength="160" value="${esc(it.summary)}" placeholder="The one thing you need to know right now"></label>
     </div>
     <datalist id="teams">${[...new Set(state.items.map(i => i.team).filter(Boolean))].map(t => `<option value="${esc(t)}">`).join('')}</datalist>
-    <div class="d-section">
-      <h3>Detailed notes</h3>
+    <details class="d-section collapsible" id="d-details"${detailsOpen ? ' open' : ''}>
+      <summary><h3>Detailed notes</h3><span class="peek" id="d-peek">${esc(peekText(it.details))}</span></summary>
       <textarea data-f="details" rows="9" placeholder="Background, stakeholders, context — anything you want kept with this entry">${esc(it.details)}</textarea>
-    </div>
+    </details>
     <div class="d-section">
       <h3>Notes log</h3>
       <div class="composer">
@@ -492,7 +495,10 @@ drawer.addEventListener('input', e => {
   if (e.target.id === 'd-name') { it.name = e.target.value; touch(it); renderList(); renderGantt(); return; }
   const f = e.target.dataset.f;
   if (f === 'effort') { const n = parseFloat(e.target.value); it.effort = isNaN(n) ? '' : Math.max(0, n); touch(it); refreshSoft(); return; }
-  if (f && ['summary', 'details', 'team'].includes(f)) { it[f] = e.target.value; touch(it); refreshSoft(); }
+  if (f && ['summary', 'details', 'team'].includes(f)) {
+    it[f] = e.target.value; touch(it); refreshSoft();
+    if (f === 'details') $('#d-peek').textContent = peekText(it.details);
+  }
 });
 drawer.addEventListener('change', e => {
   const it = byId(ui.openId); if (!it) return;
@@ -524,6 +530,12 @@ function renderDrawerKeepComposer(label) {
   if (label) $('#n-label').value = label;
   $('#n-text').focus();
 }
+// 'toggle' doesn't bubble, so listen in the capture phase.
+drawer.addEventListener('toggle', e => {
+  if (e.target.id !== 'd-details') return;
+  detailsOpen = e.target.open;
+  try { localStorage.setItem('pmo-hub-details-open', detailsOpen ? '1' : '0'); } catch (err) { /* ignore */ }
+}, true);
 drawer.addEventListener('keydown', e => {
   if (e.target.id === 'n-text' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); addNote(); }
 });
