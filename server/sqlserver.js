@@ -2,7 +2,7 @@
 // SQL Server (Express) storage: connection checks, schema creation, and the store itself.
 // Uses the "mssql" package, loaded lazily so the app still runs without it.
 
-const SCHEMA_VERSION = 2; // 2 added pmo.JournalNote (general notes)
+const SCHEMA_VERSION = 3; // 2 added pmo.JournalNote (general notes); 3 added its Meeting column
 const DB_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 
 function driver() {
@@ -179,6 +179,9 @@ const DDL = [
      UpdatedAt datetime2(3)  NOT NULL
    )`,
 
+  `IF COL_LENGTH(N'pmo.JournalNote', N'Meeting') IS NULL
+   ALTER TABLE pmo.JournalNote ADD Meeting nvarchar(200) NOT NULL CONSTRAINT DF_pmo_JournalNote_Meeting DEFAULT N''`,
+
   `IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_pmo_JournalNote_OwnerDate' AND object_id = OBJECT_ID(N'pmo.JournalNote'))
    CREATE INDEX IX_pmo_JournalNote_OwnerDate ON pmo.JournalNote (Owner, NoteDate)`,
 
@@ -235,8 +238,8 @@ class SqlStore {
   // Schema version 1 databases don't have the notes table until an admin presses "Create schema" again.
   async _journalReady() {
     if (!this.hasJournal) {
-      const t = (await this.pool.request().query(`SELECT OBJECT_ID(N'pmo.JournalNote', N'U') AS t`)).recordset[0];
-      this.hasJournal = !!t.t;
+      const t = (await this.pool.request().query(`SELECT OBJECT_ID(N'pmo.JournalNote', N'U') AS t, COL_LENGTH(N'pmo.JournalNote', N'Meeting') AS c`)).recordset[0];
+      this.hasJournal = !!t.t && t.c != null; // the table and its newest column are both there
     }
     if (!this.hasJournal) throw this._needsUpdate();
   }
@@ -250,7 +253,7 @@ class SqlStore {
     await this._journalReady();
     try { return await fn(); }
     catch (e) {
-      if (/Invalid object name 'pmo\.JournalNote'/i.test(e.message)) { this.hasJournal = false; throw this._needsUpdate(); }
+      if (/Invalid object name 'pmo\.JournalNote'|Invalid column name 'Meeting'/i.test(e.message)) { this.hasJournal = false; throw this._needsUpdate(); }
       throw e;
     }
   }
@@ -258,10 +261,10 @@ class SqlStore {
   async getJournal(owner) {
     return this._journal(async () => {
     const r = await this.pool.request().input('o', driver().NVarChar(320), owner).query(
-      `SELECT Id, CONVERT(char(10), NoteDate, 23) AS NoteDate, Label, Body,
+      `SELECT Id, CONVERT(char(10), NoteDate, 23) AS NoteDate, Label, Meeting, Body,
               CONVERT(char(23), CreatedAt, 126) AS CreatedAt, CONVERT(char(23), UpdatedAt, 126) AS UpdatedAt
        FROM pmo.JournalNote WHERE Owner = @o ORDER BY NoteDate, CreatedAt`);
-    return r.recordset.map(n => ({ id: n.Id, date: n.NoteDate, label: n.Label, text: n.Body, createdAt: iso(n.CreatedAt), updatedAt: iso(n.UpdatedAt) }));
+    return r.recordset.map(n => ({ id: n.Id, date: n.NoteDate, label: n.Label, meeting: n.Meeting, text: n.Body, createdAt: iso(n.CreatedAt), updatedAt: iso(n.UpdatedAt) }));
     });
   }
 
@@ -270,16 +273,16 @@ class SqlStore {
       for (const n of upserts) {
         const r = new sql.Request(tx);
         r.input('id', sql.NVarChar(32), n.id); r.input('o', sql.NVarChar(320), owner);
-        r.input('d', sql.VarChar(10), n.date); r.input('label', sql.NVarChar(100), n.label);
+        r.input('d', sql.VarChar(10), n.date); r.input('label', sql.NVarChar(100), n.label); r.input('meeting', sql.NVarChar(200), n.meeting || '');
         r.input('body', sql.NVarChar(sql.MAX), n.text);
         r.input('c', sql.VarChar(30), n.createdAt); r.input('u', sql.VarChar(30), n.updatedAt);
         // Update only your own note; insert only if nobody (including someone else) already has that id.
         await r.query(
-          `UPDATE pmo.JournalNote SET NoteDate = CONVERT(date, @d, 23), Label = @label, Body = @body, UpdatedAt = CONVERT(datetime2(3), @u, 127)
+          `UPDATE pmo.JournalNote SET NoteDate = CONVERT(date, @d, 23), Label = @label, Meeting = @meeting, Body = @body, UpdatedAt = CONVERT(datetime2(3), @u, 127)
            WHERE Id = @id AND Owner = @o;
            IF @@ROWCOUNT = 0 AND NOT EXISTS (SELECT 1 FROM pmo.JournalNote WHERE Id = @id)
-             INSERT INTO pmo.JournalNote (Id, Owner, NoteDate, Label, Body, CreatedAt, UpdatedAt)
-             VALUES (@id, @o, CONVERT(date, @d, 23), @label, @body, CONVERT(datetime2(3), @c, 127), CONVERT(datetime2(3), @u, 127))`);
+             INSERT INTO pmo.JournalNote (Id, Owner, NoteDate, Label, Meeting, Body, CreatedAt, UpdatedAt)
+             VALUES (@id, @o, CONVERT(date, @d, 23), @label, @meeting, @body, CONVERT(datetime2(3), @c, 127), CONVERT(datetime2(3), @u, 127))`);
       }
       for (const id of deletes) {
         await new sql.Request(tx).input('id', sql.NVarChar(32), id).input('o', sql.NVarChar(320), owner)
@@ -291,9 +294,9 @@ class SqlStore {
   async exportJournal() {
     return this._journal(async () => {
     const r = await this.pool.request().query(
-      `SELECT Id, Owner, CONVERT(char(10), NoteDate, 23) AS NoteDate, Label, Body,
+      `SELECT Id, Owner, CONVERT(char(10), NoteDate, 23) AS NoteDate, Label, Meeting, Body,
               CONVERT(char(23), CreatedAt, 126) AS CreatedAt, CONVERT(char(23), UpdatedAt, 126) AS UpdatedAt FROM pmo.JournalNote`);
-    return r.recordset.map(n => ({ id: n.Id, owner: n.Owner, date: n.NoteDate, label: n.Label, text: n.Body, createdAt: iso(n.CreatedAt), updatedAt: iso(n.UpdatedAt) }));
+    return r.recordset.map(n => ({ id: n.Id, owner: n.Owner, date: n.NoteDate, label: n.Label, meeting: n.Meeting, text: n.Body, createdAt: iso(n.CreatedAt), updatedAt: iso(n.UpdatedAt) }));
     });
   }
 
@@ -303,11 +306,11 @@ class SqlStore {
       for (const n of notes) {
         await new sql.Request(tx)
           .input('id', sql.NVarChar(32), n.id).input('o', sql.NVarChar(320), n.owner)
-          .input('d', sql.VarChar(10), n.date).input('label', sql.NVarChar(100), n.label)
+          .input('d', sql.VarChar(10), n.date).input('label', sql.NVarChar(100), n.label).input('meeting', sql.NVarChar(200), n.meeting || '')
           .input('body', sql.NVarChar(sql.MAX), n.text)
           .input('c', sql.VarChar(30), n.createdAt).input('u', sql.VarChar(30), n.updatedAt)
-          .query(`INSERT INTO pmo.JournalNote (Id, Owner, NoteDate, Label, Body, CreatedAt, UpdatedAt)
-                  VALUES (@id, @o, CONVERT(date, @d, 23), @label, @body, CONVERT(datetime2(3), @c, 127), CONVERT(datetime2(3), @u, 127))`);
+          .query(`INSERT INTO pmo.JournalNote (Id, Owner, NoteDate, Label, Meeting, Body, CreatedAt, UpdatedAt)
+                  VALUES (@id, @o, CONVERT(date, @d, 23), @label, @meeting, @body, CONVERT(datetime2(3), @c, 127), CONVERT(datetime2(3), @u, 127))`);
       }
     }));
   }

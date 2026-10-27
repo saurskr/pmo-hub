@@ -77,7 +77,7 @@ function cleanJournalNote(raw) {
   if (!date) throw bad('A note needs a date');
   const text = str(raw.text, 50000);
   if (!text.trim()) throw bad('A note needs some text');
-  return { id: cleanId(raw.id, 'note'), date, label: str(raw.label, 100), text, createdAt: cleanIso(raw.createdAt), updatedAt: cleanIso(raw.updatedAt) };
+  return { id: cleanId(raw.id, 'note'), date, label: str(raw.label, 100), meeting: str(raw.meeting, 200).trim(), text, createdAt: cleanIso(raw.createdAt), updatedAt: cleanIso(raw.updatedAt) };
 }
 function cleanJournalSync(raw) {
   if (!raw || typeof raw !== 'object') throw bad('Invalid request');

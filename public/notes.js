@@ -10,7 +10,7 @@
   const fromYmd = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
   const dateStr = d => ymd(d.getFullYear(), d.getMonth(), d.getDate());
   const todayStr = () => dateStr(new Date());
-  const LABELS = ['Meeting', 'Idea', 'Decision', 'Follow-up', 'Reminder', 'Personal'];
+  const LABELS = ['Idea', 'Decision', 'Follow-up', 'Reminder', 'Personal']; // the meeting itself has its own field
 
   // Week starts on the viewer's locale default (Monday if the browser can't say).
   const firstDay = (() => {
@@ -27,7 +27,8 @@
   let view = { y: fromYmd(selected).getFullYear(), m: fromYmd(selected).getMonth() };
   let query = '';
   let editingId = null;
-  let draft = { text: '', label: '' };
+  let draft = { text: '', label: '', meeting: '' };
+  let meetingView = ''; // when set, show every note for that meeting instead of a single day
   let error = '';
 
   /* ---------- server ---------- */
@@ -61,6 +62,17 @@
   };
   const longDate = s => fromYmd(s).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const shortDate = s => fromYmd(s).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  const mkey = s => String(s || '').trim().toLowerCase();
+  // Meeting names you've used before, most recently used first, for the suggestion list.
+  function meetingNames() {
+    const seen = new Map();
+    for (const n of notes.slice().sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))) {
+      if (n.meeting && !seen.has(mkey(n.meeting))) seen.set(mkey(n.meeting), n.meeting);
+    }
+    return [...seen.values()];
+  }
+  const meetingOptions = () => `<datalist id="meetings">${meetingNames().map(m => `<option value="${esc(m)}">`).join('')}</datalist>`;
+  const meetingBtn = n => (n.meeting ? `<button class="mtg" data-meeting="${esc(n.meeting)}" title="Show all notes for this meeting">${esc(n.meeting)}</button>` : '');
   const chip = l => (l ? `<span class="chip" style="--c:${labelColor(l)}">${esc(l)}</span>` : '');
 
   // A diary entry shows its time if it was written on the day it belongs to, otherwise when it was added.
@@ -71,7 +83,7 @@
   }
 
   function select(date, focus = false) {
-    selected = date; editingId = null; error = '';
+    selected = date; editingId = null; error = ''; meetingView = '';
     const d = fromYmd(date);
     view = { y: d.getFullYear(), m: d.getMonth() };
     history.replaceState(null, '', location.pathname + (date === todayStr() ? '' : '#' + date));
@@ -108,6 +120,7 @@
   function renderDay() {
     const body = $('#day-body');
     if (query) return renderSearch(body);
+    if (meetingView) return renderMeeting(body);
     const list = (byDate().get(selected) || []).slice().sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     $('#day-title').textContent = longDate(selected);
     $('#day-sub').textContent = (selected === todayStr() ? 'Today · ' : '') + `${list.length} note${list.length === 1 ? '' : 's'}`;
@@ -115,9 +128,11 @@
       <div class="composer">
         <textarea id="n-text" rows="3" placeholder="Write a note for this day…  (Ctrl/⌘+Enter to save)">${esc(draft.text)}</textarea>
         <div class="bar">
+          <input id="n-meeting" list="meetings" maxlength="200" autocomplete="off" placeholder="Meeting (optional)" aria-label="Meeting name" value="${esc(draft.meeting)}">
           <select id="n-label" aria-label="Label"><option value="">No label</option>${LABELS.map(l => `<option${draft.label === l ? ' selected' : ''}>${l}</option>`).join('')}</select>
           <button class="primary" id="n-add">Add note</button>
         </div>
+        ${meetingOptions()}
       </div>
       ${error ? `<div class="err-msg" role="alert">Couldn't save: ${esc(error)}</div>` : ''}
       <div id="entries">${list.length ? list.map(entryHtml).join('') : '<div class="diary-empty">Nothing written for this day yet.</div>'}</div>`;
@@ -127,38 +142,50 @@
     if (n.id === editingId) {
       return `<div class="entry" data-id="${n.id}">
         <textarea rows="4" id="e-text">${esc(n.text)}</textarea>
-        <div class="bar" style="display:flex;gap:8px;margin-top:6px">
+        <div class="bar" style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+          <input id="e-meeting" list="meetings" maxlength="200" autocomplete="off" placeholder="Meeting (optional)" aria-label="Meeting name" value="${esc(n.meeting)}">
           <select id="e-label"><option value="">No label</option>${[...new Set([...LABELS, n.label].filter(Boolean))].map(l => `<option${n.label === l ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>
           <button class="primary" data-act="save">Save</button><button data-act="cancel">Cancel</button>
-        </div></div>`;
+        </div>${meetingOptions()}</div>`;
     }
     return `<div class="entry" data-id="${n.id}">
-      <div class="entry-head">${chip(n.label)}<span>${esc(whenText(n))}</span><span class="sp"></span>
+      <div class="entry-head">${meetingBtn(n)}${chip(n.label)}<span>${esc(whenText(n))}</span><span class="sp"></span>
         <span class="entry-actions"><button data-act="edit">Edit</button><button data-act="del">Delete</button></span></div>
       <div class="entry-body">${esc(n.text)}</div></div>`;
   }
 
   function renderSearch(body) {
     const q = query.toLowerCase();
-    const hits = notes.filter(n => n.text.toLowerCase().includes(q) || (n.label || '').toLowerCase().includes(q))
+    const hits = notes.filter(n => n.text.toLowerCase().includes(q) || (n.label || '').toLowerCase().includes(q) || (n.meeting || '').toLowerCase().includes(q))
       .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)).slice(0, 100);
     $('#day-title').textContent = 'Search results';
     $('#day-sub').textContent = `${hits.length}${hits.length === 100 ? '+' : ''} match${hits.length === 1 ? '' : 'es'} for “${query}”`;
     body.innerHTML = hits.length
-      ? hits.map(n => `<button class="result" data-goto="${n.date}"><div class="when">${esc(longDate(n.date))} ${chip(n.label)}</div><div class="snip">${esc(n.text)}</div></button>`).join('')
+      ? hits.map(n => `<button class="result" data-goto="${n.date}"><div class="when">${esc(longDate(n.date))} ${n.meeting ? `<span class="mtg-tag">${esc(n.meeting)}</span>` : ''} ${chip(n.label)}</div><div class="snip">${esc(n.text)}</div></button>`).join('')
       : '<div class="diary-empty">No notes match.</div>';
+  }
+
+  // Every note recorded against one meeting, newest first, so you can follow it over time.
+  function renderMeeting(body) {
+    const k = mkey(meetingView);
+    const list = notes.filter(n => mkey(n.meeting) === k).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+    const name = (list[0] && list[0].meeting) || meetingView;
+    $('#day-title').textContent = name;
+    $('#day-sub').textContent = list.length ? `${list.length} note${list.length === 1 ? '' : 's'} · ${shortDate(list[list.length - 1].date)} to ${shortDate(list[0].date)}` : 'No notes for this meeting';
+    body.innerHTML = `<div><button data-act="close-meeting">← Back to ${esc(longDate(selected))}</button></div>` +
+      (list.length ? list.map(n => `<button class="result" data-goto="${n.date}"><div class="when">${esc(longDate(n.date))} ${chip(n.label)}</div><div class="snip">${esc(n.text)}</div></button>`).join('') : '<div class="diary-empty">Nothing recorded yet.</div>');
   }
 
   /* ---------- actions ---------- */
 
   async function addNote() {
     const text = $('#n-text').value.trim();
-    draft = { text: $('#n-text').value, label: $('#n-label').value };
+    draft = { text: $('#n-text').value, label: $('#n-label').value, meeting: $('#n-meeting').value.trim() };
     if (!text) return;
     const now = new Date().toISOString();
-    const note = { id: uid(), date: selected, label: draft.label, text, createdAt: now, updatedAt: now };
+    const note = { id: uid(), date: selected, label: draft.label, meeting: draft.meeting, text, createdAt: now, updatedAt: now };
     $('#n-add').disabled = true;
-    if (await save({ upserts: [note] })) { notes.push(note); draft = { text: '', label: draft.label }; renderCalendar(); }
+    if (await save({ upserts: [note] })) { notes.push(note); draft = { text: '', label: draft.label, meeting: draft.meeting }; renderCalendar(); } // keep the meeting for a run of notes from the same meeting
     renderDay();
     $('#n-text').focus();
   }
@@ -167,7 +194,7 @@
     const n = notes.find(x => x.id === id);
     const text = $('#e-text').value.trim();
     if (!n || !text) return;
-    const updated = { ...n, text, label: $('#e-label').value, updatedAt: new Date().toISOString() };
+    const updated = { ...n, text, label: $('#e-label').value, meeting: $('#e-meeting').value.trim(), updatedAt: new Date().toISOString() };
     if (await save({ upserts: [updated] })) { Object.assign(n, updated); editingId = null; }
     renderDay();
   }
@@ -201,18 +228,22 @@
   let searchTimer;
   $('#search').addEventListener('input', e => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => { query = e.target.value.trim(); editingId = null; renderDay(); }, 150);
+    searchTimer = setTimeout(() => { query = e.target.value.trim(); editingId = null; meetingView = ''; renderDay(); }, 150);
   });
 
   const body = $('#day-body');
   body.addEventListener('input', e => {
     if (e.target.id === 'n-text') draft.text = e.target.value;
     if (e.target.id === 'n-label') draft.label = e.target.value;
+    if (e.target.id === 'n-meeting') draft.meeting = e.target.value;
   });
   body.addEventListener('keydown', e => {
     if (e.target.id === 'n-text' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); addNote(); }
   });
   body.addEventListener('click', e => {
+    const mt = e.target.closest('[data-meeting]');
+    if (mt) { meetingView = mt.dataset.meeting; editingId = null; return renderDay(); }
+    if (e.target.closest('[data-act="close-meeting"]')) { meetingView = ''; return renderDay(); }
     const go = e.target.closest('[data-goto]');
     if (go) { query = ''; $('#search').value = ''; return select(go.dataset.goto); }
     if (e.target.closest('#n-add')) return addNote();
