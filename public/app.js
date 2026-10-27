@@ -29,6 +29,10 @@ const GLYPH = {
 const TYPES = { project: 'Project', vendor: 'Vendor', roadmap: 'Roadmap', quickwin: 'Quick Win' };
 const TAB_TITLES = { '': 'Summary', project: 'Projects', vendor: 'Vendors', roadmap: 'Roadmap', quickwin: 'Quick Wins' };
 
+const MAX_FOCUS = 5;
+const PIN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+const TARGET_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>';
+
 const DEFAULT_LABELS = ['Update', 'Decision', 'Risk', 'Blocker', 'Action', 'Question', 'FYI'];
 const LABEL_COLORS = {
   Update: 'var(--blue)', Decision: 'var(--purple)', Risk: 'var(--amber)', Blocker: 'var(--red)',
@@ -102,7 +106,7 @@ function blankItem(over = {}) {
   const now = new Date().toISOString();
   return Object.assign({
     id: uid(), type: 'project', parentId: null, name: '', team: '', status: 'notstarted',
-    start: '', end: '', effort: '', summary: '', details: '', notes: [], createdAt: now, updatedAt: now,
+    start: '', end: '', effort: '', focus: false, focusWhy: '', summary: '', details: '', notes: [], createdAt: now, updatedAt: now,
   }, over);
 }
 
@@ -114,13 +118,13 @@ function seed() {
     notes: notes.map(([days, label, text]) => ({ id: uid(), at: ago_(days), label, text })),
     updatedAt: notes.length ? ago_(Math.min(...notes.map(n => n[0]))) : ago_(0),
   }, over));
-  const erp = mk({ name: 'ERP migration', team: 'Finance Systems', status: 'atrisk', start: d(-120), end: d(150),
+  const erp = mk({ name: 'ERP migration', focus: true, focusWhy: 'Cutover date locked, mapping sign-off late.', team: 'Finance Systems', status: 'atrisk', start: d(-120), end: d(150),
     summary: 'Cutover date holding, but data-mapping sign-off is late.',
     details: 'Sponsor: CFO. Vendor is running two workstreams in parallel.\n\nKey dependency: finance sign-off on chart-of-accounts mapping before UAT can start.' },
     [[2, 'Risk', 'Mapping sign-off now 2 weeks late. If not signed by month end UAT slips into the freeze window.'],
      [9, 'Decision', 'Agreed to keep big-bang cutover rather than phase by entity.'],
      [20, 'Update', 'Vendor confirmed second environment is ready.']]);
-  const erpData = mk({ name: 'Data mapping sign-off', type: 'project', parentId: erp.id, team: 'Finance', status: 'offtrack', start: d(-40), end: d(-5),
+  const erpData = mk({ name: 'Data mapping sign-off', focus: true, focusWhy: 'Blocks UAT start.', type: 'project', parentId: erp.id, team: 'Finance', status: 'offtrack', start: d(-40), end: d(-5),
     summary: 'Waiting on Finance controller review.' },
     [[3, 'Blocker', 'Controller out until next week; asked deputy to review in the meantime.']]);
   const erpUat = mk({ name: 'UAT & cutover rehearsal', type: 'project', parentId: erp.id, team: 'QA / Finance', status: 'notstarted', start: d(10), end: d(80),
@@ -128,7 +132,7 @@ function seed() {
   const sec = mk({ name: 'Zero-trust network rollout', team: 'Infrastructure', status: 'ontrack', start: d(-60), end: d(90),
     summary: 'Phase 1 (HQ) complete, branch sites next.' },
     [[6, 'Update', 'HQ cutover finished with no major incidents.'], [30, 'Decision', 'Branch rollout to be done by region, EMEA first.']]);
-  const vendor = mk({ name: 'Cloud vendor contract renewal', type: 'vendor', team: 'Procurement', status: 'atrisk', start: d(-14), end: d(35),
+  const vendor = mk({ name: 'Cloud vendor contract renewal', focus: true, focusWhy: '3-year commit decision due.', type: 'vendor', team: 'Procurement', status: 'atrisk', start: d(-14), end: d(35),
     summary: 'Pricing discussion open; they want 3-year commit.' },
     [[1, 'Question', 'Can we get a 2-year term with the same discount? Procurement to ask.'], [12, 'Action', 'Send usage forecast to vendor.']]);
   const helpdesk = mk({ name: 'Service desk tooling review', type: 'roadmap', team: 'End User Services', status: 'onhold', start: d(-30), end: d(60),
@@ -140,7 +144,7 @@ function seed() {
   const msp = mk({ name: 'Managed print provider', type: 'vendor', team: 'End User Services', status: 'ontrack', start: d(-200), end: d(160),
     summary: 'Service levels met for the last two quarters.' },
     [[15, 'Update', 'Quarterly service review held; no open escalations.']]);
-  const ai = mk({ name: 'AI adoption program', type: 'roadmap', team: 'IT Leadership', status: 'notstarted', start: d(30), end: d(300),
+  const ai = mk({ name: 'AI adoption program', focus: true, focusWhy: 'Agree sponsor before budget cycle.', type: 'roadmap', team: 'IT Leadership', status: 'notstarted', start: d(30), end: d(300),
     summary: 'Not yet an official project; agree scope and sponsor first.',
     details: 'Idea: structured program to help teams adopt AI tooling safely.\n\nOpen questions: sponsor, budget, policy owner.' },
     [[4, 'Question', 'Who owns the AI usage policy — Security or Legal?']]);
@@ -155,6 +159,9 @@ function seed() {
 const byId = id => state.items.find(i => i.id === id);
 const hasChildren = id => state.items.some(i => i.parentId === id);
 const lastNote = it => it.notes.length ? it.notes.reduce((a, b) => (a.at > b.at ? a : b)) : null;
+
+const focusItems = () => state.items.filter(i => i.focus);
+const pinBtn = it => `<button class="tg pin${it.focus ? ' on' : ''}" data-pin="${it.id}" aria-pressed="${!!it.focus}" aria-label="${it.focus ? 'Remove from Focus' : 'Add to Focus'}" title="${it.focus ? 'In Focus — click to remove' : 'Add to Focus'}">${PIN_SVG}</button>`;
 
 const fmtHours = n => `${Number(n)}h`;
 const hasEffort = it => it.effort !== '' && it.effort != null && !isNaN(Number(it.effort));
@@ -228,6 +235,71 @@ function renderFilters() {
   $('#f-label').innerHTML = `<option value="">Any note label</option>` + state.labels.map(l => `<option${l === ui.label ? ' selected' : ''}>${esc(l)}</option>`).join('');
 }
 
+/* ---------- render: focus panel ---------- */
+
+function focusDate(it) {
+  const t = todayStr();
+  if (it.status === 'done') return '';
+  if (it.end && daysBetween(t, it.end) < 0) return `<span class="warn">Overdue ${-daysBetween(t, it.end)}d</span>`;
+  if (it.start && daysBetween(t, it.start) > 0) return `Starts in ${daysBetween(t, it.start)}d`;
+  if (it.end) return `Ends in ${daysBetween(t, it.end)}d`;
+  return '';
+}
+
+function renderFocus() {
+  const host = $('#focus');
+  host.hidden = !!ui.type; // shown on the all-items Summary only
+  if (host.hidden) return;
+  const items = focusItems();
+  const dots = Array.from({ length: MAX_FOCUS }, (_, i) => `<i class="${i < items.length ? '' : 'e'}"></i>`).join('');
+  const cards = items.map(it => {
+    const n = lastNote(it);
+    const stale = it.status !== 'done' && it.status !== 'notstarted' && ageDays(it.updatedAt) > STALE_DAYS;
+    return `<div class="fc" data-id="${it.id}" tabindex="0" role="button">
+      <div class="t">${statusIcon(it.status, 16)}${TYPES[it.type]}</div>
+      <div class="n">${esc(it.name || 'Untitled')}</div>
+      <div class="w">${it.focusWhy ? esc(it.focusWhy) : (it.summary ? `<span class="muted">${esc(it.summary)}</span>` : '<span class="muted">No “why now” yet</span>')}</div>
+      <div class="l">${n ? `<span>${chip(n.label || 'Note')} ${ago(n.at)}</span>` : '<span>No notes</span>'}<span>${focusDate(it)}</span>${stale ? `<span class="stale">No update in ${ageDays(it.updatedAt)}d</span>` : ''}</div>
+    </div>`;
+  }).join('');
+  const free = MAX_FOCUS - items.length;
+  const empty = free > 0 ? `<div class="fc empty"><div>${free === MAX_FOCUS ? 'Nothing in Focus yet' : free === 1 ? 'One slot free' : free + ' slots free'}<br><small>Use the pin on any entry to add it</small></div></div>` : '';
+  host.innerHTML = `<div class="panel-head"><h2>Focus</h2><span class="muted">The five things that need you most right now</span>
+    <span class="count"><span class="dots" aria-hidden="true">${dots}</span>${items.length} of ${MAX_FOCUS}</span></div>
+    <div class="cards">${cards}${empty}</div>`;
+}
+
+/* ---------- pinning ---------- */
+
+function togglePin(id) {
+  const it = byId(id);
+  if (!it) return;
+  if (it.focus) { it.focus = false; touch(it); return afterPin(); }
+  if (focusItems().length >= MAX_FOCUS) return openSwap(it);
+  it.focus = true; touch(it); afterPin();
+}
+
+function afterPin() {
+  renderAll();
+  if (ui.openId) refreshDrawerKeepScroll();
+}
+
+function refreshDrawerKeepScroll() {
+  const y = $('#drawer').scrollTop;
+  renderDrawer();
+  $('#drawer').scrollTop = y;
+}
+
+function openSwap(incoming) {
+  const dlg = $('#swap');
+  dlg.innerHTML = `<form method="dialog"><h3>Focus is full</h3>
+    <p>Choose one to take out so “${esc(incoming.name || 'Untitled')}” can go in.</p>
+    <div class="swap-list">${focusItems().map(f => `<button type="button" data-out="${f.id}">${statusIcon(f.status, 16)}<span class="nm">${esc(f.name || 'Untitled')}</span><small>${TYPES[f.type]}</small></button>`).join('')}</div>
+    <div class="swap-actions"><button value="cancel">Cancel</button></div></form>`;
+  dlg.dataset.incoming = incoming.id;
+  dlg.showModal();
+}
+
 /* ---------- render: summary list ---------- */
 
 function dateInfo(it) {
@@ -253,7 +325,7 @@ function renderList() {
     const n = lastNote(it);
     const parent = it.parentId && !child ? byId(it.parentId) : null;
     const stale = it.status !== 'done' && it.status !== 'notstarted' && ageDays(it.updatedAt) > STALE_DAYS;
-    return `<div class="row${child ? ' child' : ''}" data-id="${it.id}" tabindex="0" role="button">
+    return `<div class="row${child ? ' child' : ''}${it.focus ? ' focused' : ''}" data-id="${it.id}" tabindex="0" role="button">
       <div>${statusIcon(it.status)}</div>
       <div><div class="name">${esc(it.name || 'Untitled')}</div>
         <div class="sub"><span class="tag">${TYPES[it.type]}</span>${it.team ? esc(it.team) : ''}${parent ? ` · in ${esc(parent.name)}` : ''}${it.type === 'quickwin' && hasEffort(it) ? ` · <b>~${fmtHours(it.effort)}</b>` : ''}</div></div>
@@ -261,6 +333,7 @@ function renderList() {
       <div class="dates">${dateInfo(it)}</div>
       <div>${n ? `${chip(n.label || 'Note')} <span class="muted">${ago(n.at)}</span><div class="clamp muted">${esc(n.text)}</div>` : '<span class="muted">No notes</span>'}
         ${stale ? `<div class="stale">No update in ${ageDays(it.updatedAt)}d</div>` : ''}</div>
+      <div class="pin-cell">${pinBtn(it)}</div>
     </div>`;
   }).join('');
 }
@@ -369,6 +442,7 @@ function renderDrawer() {
     <div class="d-head">
       <span id="d-icon">${statusIcon(it.status, 24)}</span>
       <input id="d-name" value="${esc(it.name)}" placeholder="Name" aria-label="Name">
+      <button id="d-focus" class="tg pill${it.focus ? ' on' : ''}" aria-pressed="${!!it.focus}">${TARGET_SVG}${it.focus ? 'In Focus' : 'Add to Focus'} <small>${focusItems().length}/${MAX_FOCUS}</small></button>
       <button id="d-close" aria-label="Close">✕</button>
     </div>
     <div class="grid2">
@@ -381,6 +455,7 @@ function renderDrawer() {
       ${it.type === 'quickwin' ? `<label>Estimated effort (hours)<input type="number" data-f="effort" min="0" step="0.5" inputmode="decimal" value="${esc(it.effort)}" placeholder="e.g. 12"></label>` : ''}
       <label>Start<input type="date" data-f="start" value="${esc(it.start)}"></label>
       <label>End<input type="date" data-f="end" value="${esc(it.end)}"></label>
+      ${it.focus ? `<label class="field full">Why it's a focus right now<input data-f="focusWhy" maxlength="160" value="${esc(it.focusWhy)}" placeholder="What makes this one of your five?"></label>` : ''}
       <label class="field full">Where it stands (one line)<input data-f="summary" maxlength="160" value="${esc(it.summary)}" placeholder="The one thing you need to know right now"></label>
     </div>
     <datalist id="teams">${[...new Set(state.items.map(i => i.team).filter(Boolean))].map(t => `<option value="${esc(t)}">`).join('')}</datalist>
@@ -451,7 +526,7 @@ function newLabel() {
 function renderAll() {
   document.querySelector('.top h1').textContent = TAB_TITLES[ui.type];
   document.title = `${TAB_TITLES[ui.type]} – PMO Hub`;
-  renderStats(); renderFilters(); renderList(); renderGantt();
+  renderFocus(); renderStats(); renderFilters(); renderList(); renderGantt();
 }
 
 window.addEventListener('hashchange', () => {
@@ -476,7 +551,22 @@ $('#f-range').addEventListener('change', e => { ui.range = e.target.value; rende
 window.addEventListener('resize', debounce(renderGantt, 150));
 
 const openFrom = e => { const t = e.target.closest('[data-id]'); if (t) openDrawer(t.dataset.id); };
-$('#list').addEventListener('click', openFrom);
+$('#list').addEventListener('click', e => {
+  const pin = e.target.closest('[data-pin]');
+  if (pin) { e.stopPropagation(); return togglePin(pin.dataset.pin); }
+  openFrom(e);
+});
+$('#focus').addEventListener('click', openFrom);
+$('#focus').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.fc')) { e.preventDefault(); openFrom(e); } });
+$('#swap').addEventListener('click', e => {
+  const out = e.target.closest('[data-out]');
+  if (!out) return;
+  const dlg = $('#swap');
+  const outgoing = byId(out.dataset.out), incoming = byId(dlg.dataset.incoming);
+  if (outgoing && incoming) { outgoing.focus = false; incoming.focus = true; touch(outgoing); touch(incoming); }
+  dlg.close();
+  afterPin();
+});
 $('#list').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { if (e.target.matches('.row')) { e.preventDefault(); openFrom(e); } } });
 $('#gantt').addEventListener('click', openFrom);
 
@@ -487,7 +577,7 @@ $('#btn-new').addEventListener('click', () => {
   openDrawer(it.id, true);
 });
 $('#scrim').addEventListener('click', closeDrawer);
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.openId) closeDrawer(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.openId && !$('#swap').open) closeDrawer(); });
 
 const drawer = $('#drawer');
 drawer.addEventListener('input', e => {
@@ -495,7 +585,7 @@ drawer.addEventListener('input', e => {
   if (e.target.id === 'd-name') { it.name = e.target.value; touch(it); renderList(); renderGantt(); return; }
   const f = e.target.dataset.f;
   if (f === 'effort') { const n = parseFloat(e.target.value); it.effort = isNaN(n) ? '' : Math.max(0, n); touch(it); refreshSoft(); return; }
-  if (f && ['summary', 'details', 'team'].includes(f)) {
+  if (f && ['summary', 'details', 'team', 'focusWhy'].includes(f)) {
     it[f] = e.target.value; touch(it); refreshSoft();
     if (f === 'details') $('#d-peek').textContent = peekText(it.details);
   }
@@ -503,7 +593,7 @@ drawer.addEventListener('input', e => {
 drawer.addEventListener('change', e => {
   const it = byId(ui.openId); if (!it) return;
   const f = e.target.dataset.f;
-  if (f && !['summary', 'details', 'team', 'effort'].includes(f)) {
+  if (f && !['summary', 'details', 'team', 'effort', 'focusWhy'].includes(f)) {
     let v = e.target.value;
     if (f === 'parentId') v = v || null;
     it[f] = v;
@@ -522,7 +612,7 @@ drawer.addEventListener('change', e => {
     renderDrawerKeepComposer(l);
   }
 });
-function refreshSoft() { renderStats(); renderList(); renderGantt(); }
+function refreshSoft() { renderFocus(); renderStats(); renderList(); renderGantt(); }
 function renderDrawerKeepComposer(label) {
   const text = $('#n-text').value;
   renderDrawer();
@@ -542,6 +632,7 @@ drawer.addEventListener('keydown', e => {
 drawer.addEventListener('click', e => {
   const it = byId(ui.openId); if (!it) return;
   if (e.target.closest('#d-close')) return closeDrawer();
+  if (e.target.closest('#d-focus')) return togglePin(it.id);
   if (e.target.closest('#n-add')) return addNote();
   if (e.target.closest('#d-delete')) {
     if (!confirm(`Delete “${it.name || 'Untitled'}” and all its notes?`)) return;
