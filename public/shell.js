@@ -10,21 +10,29 @@
     me = await r.json();
   } catch (e) { location.href = '/login.html'; return; }
 
-  const here = location.pathname.endsWith('admin.html') ? 'admin' : 'summary';
+  const onAdmin = location.pathname.endsWith('admin.html');
+  const TABS = [['', 'Summary'], ['project', 'Projects'], ['vendor', 'Vendors'], ['roadmap', 'Roadmap']];
+  const currentTab = () => location.hash.slice(1);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const link = (href, id, text) => `<a href="${href}"${here === id ? ' aria-current="page"' : ''}>${text}</a>`;
+  const tabLink = ([id, text]) => `<a href="/#${id}" data-tab="${id}"${!onAdmin && currentTab() === id ? ' aria-current="page"' : ''}>${text}</a>`;
 
   side.innerHTML = `
     <div class="brand">PMO Hub</div>
     <nav aria-label="Main">
-      ${link('/', 'summary', 'Summary')}
-      ${me.role === 'admin' ? link('/admin.html', 'admin', 'Administration') : ''}
+      ${TABS.map(tabLink).join('')}
+      ${me.role === 'admin' ? `<hr><a href="/admin.html"${onAdmin ? ' aria-current="page"' : ''}>Administration</a>` : ''}
     </nav>
     <div class="side-foot">
       <div class="who">${esc(me.email)}<small>${me.role === 'admin' ? 'Administrator' : 'User'}</small></div>
       <button id="btn-theme" title="Theme: auto / light / dark" aria-label="Switch theme"></button>
       <button id="btn-signout">Sign out</button>
     </div>`;
+
+  window.addEventListener('hashchange', () => {
+    side.querySelectorAll('[data-tab]').forEach(a => {
+      if (!onAdmin && a.dataset.tab === currentTab()) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+  });
 
   const THEMES = ['auto', 'light', 'dark'];
   let theme = 'auto';

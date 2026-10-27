@@ -6,6 +6,7 @@
 .brand { font-size: 17px; font-weight: 700; padding: 4px 10px 8px; letter-spacing: .01em; }
 .side nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .side nav a { color: inherit; text-decoration: none; padding: 8px 10px; border-radius: var(--r-sm); opacity: .8; display: flex; gap: 10px; align-items: center; }
+.side nav hr { border: 0; border-top: 1px solid color-mix(in srgb, var(--head-text) 20%, transparent); margin: 8px 4px; width: calc(100% - 8px); }
 .side nav a:hover { opacity: 1; background: color-mix(in srgb, var(--head-text) 10%, transparent); }
 .side nav a[aria-current="page"] { opacity: 1; background: color-mix(in srgb, var(--head-text) 18%, transparent); font-weight: 600; }
 .side-foot { border-top: 1px solid color-mix(in srgb, var(--head-text) 20%, transparent); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }

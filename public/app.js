@@ -26,6 +26,9 @@ const GLYPH = {
   done:       '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 8.2l2.2 2.2 3.8-4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
 };
 
+const TYPES = { project: 'Project', vendor: 'Vendor', roadmap: 'Roadmap' };
+const TAB_TITLES = { '': 'Summary', project: 'Projects', vendor: 'Vendors', roadmap: 'Roadmap' };
+
 const DEFAULT_LABELS = ['Update', 'Decision', 'Risk', 'Blocker', 'Action', 'Question', 'FYI'];
 const LABEL_COLORS = {
   Update: 'var(--blue)', Decision: 'var(--purple)', Risk: 'var(--amber)', Blocker: 'var(--red)',
@@ -69,7 +72,8 @@ function ageDays(iso) { return Math.floor((Date.now() - new Date(iso).getTime())
 /* ---------- state ---------- */
 
 let state = load() || seed();
-const ui = { q: '', team: '', label: '', sort: 'attention', showDone: true, status: '', range: 'auto', openId: null, noteLabel: '' };
+const hashType = () => { const h = location.hash.slice(1); return TYPES[h] ? h : ''; };
+const ui = { type: hashType(), q: '', team: '', label: '', sort: 'attention', showDone: true, status: '', range: 'auto', openId: null, noteLabel: '' };
 
 function load() {
   try {
@@ -81,6 +85,7 @@ function load() {
 function normalise(s) {
   const labels = Array.isArray(s.labels) ? s.labels.slice() : DEFAULT_LABELS.slice();
   for (const it of s.items) {
+    if (!TYPES[it.type]) it.type = 'project'; // older data used 'track'
     it.notes = Array.isArray(it.notes) ? it.notes : [];
     for (const n of it.notes) if (n.label && !labels.includes(n.label)) labels.push(n.label);
   }
@@ -112,24 +117,27 @@ function seed() {
     [[2, 'Risk', 'Mapping sign-off now 2 weeks late. If not signed by month end UAT slips into the freeze window.'],
      [9, 'Decision', 'Agreed to keep big-bang cutover rather than phase by entity.'],
      [20, 'Update', 'Vendor confirmed second environment is ready.']]);
-  const erpData = mk({ name: 'Data mapping sign-off', type: 'track', parentId: erp.id, team: 'Finance', status: 'offtrack', start: d(-40), end: d(-5),
+  const erpData = mk({ name: 'Data mapping sign-off', type: 'project', parentId: erp.id, team: 'Finance', status: 'offtrack', start: d(-40), end: d(-5),
     summary: 'Waiting on Finance controller review.' },
     [[3, 'Blocker', 'Controller out until next week; asked deputy to review in the meantime.']]);
-  const erpUat = mk({ name: 'UAT & cutover rehearsal', type: 'track', parentId: erp.id, team: 'QA / Finance', status: 'notstarted', start: d(10), end: d(80),
+  const erpUat = mk({ name: 'UAT & cutover rehearsal', type: 'project', parentId: erp.id, team: 'QA / Finance', status: 'notstarted', start: d(10), end: d(80),
     summary: 'Starts once mapping is signed off.' });
   const sec = mk({ name: 'Zero-trust network rollout', team: 'Infrastructure', status: 'ontrack', start: d(-60), end: d(90),
     summary: 'Phase 1 (HQ) complete, branch sites next.' },
     [[6, 'Update', 'HQ cutover finished with no major incidents.'], [30, 'Decision', 'Branch rollout to be done by region, EMEA first.']]);
-  const vendor = mk({ name: 'Cloud vendor contract renewal', type: 'track', team: 'Procurement', status: 'atrisk', start: d(-14), end: d(35),
+  const vendor = mk({ name: 'Cloud vendor contract renewal', type: 'vendor', team: 'Procurement', status: 'atrisk', start: d(-14), end: d(35),
     summary: 'Pricing discussion open; they want 3-year commit.' },
     [[1, 'Question', 'Can we get a 2-year term with the same discount? Procurement to ask.'], [12, 'Action', 'Send usage forecast to vendor.']]);
-  const helpdesk = mk({ name: 'Service desk tooling review', type: 'track', team: 'End User Services', status: 'onhold', start: d(-30), end: d(60),
+  const helpdesk = mk({ name: 'Service desk tooling review', type: 'roadmap', team: 'End User Services', status: 'onhold', start: d(-30), end: d(60),
     summary: 'Paused until budget cycle completes.' },
     [[25, 'Decision', 'Pause until FY budget is confirmed.']]);
   const mfa = mk({ name: 'MFA for contractors', team: 'Security', status: 'done', start: d(-90), end: d(-12), summary: 'Completed; 98% enrolled.' },
     [[12, 'Update', 'Closed out. Remaining accounts are dormant and will be disabled.']]);
-  const dr = mk({ name: 'DR test — Q1', team: 'Infrastructure', status: 'notstarted', start: d(120), end: d(150), summary: 'Scope to be agreed with app owners.' });
-  return { items: [erp, erpData, erpUat, sec, vendor, helpdesk, mfa, dr], labels: DEFAULT_LABELS.slice() };
+  const dr = mk({ name: 'DR test — Q1', type: 'roadmap', team: 'Infrastructure', status: 'notstarted', start: d(120), end: d(150), summary: 'Scope to be agreed with app owners.' });
+  const msp = mk({ name: 'Managed print provider', type: 'vendor', team: 'End User Services', status: 'ontrack', start: d(-200), end: d(160),
+    summary: 'Service levels met for the last two quarters.' },
+    [[15, 'Update', 'Quarterly service review held; no open escalations.']]);
+  return { items: [erp, erpData, erpUat, sec, vendor, msp, helpdesk, mfa, dr], labels: DEFAULT_LABELS.slice() };
 }
 
 const byId = id => state.items.find(i => i.id === id);
@@ -141,6 +149,7 @@ function touch(it) { it.updatedAt = new Date().toISOString(); save(); }
 /* ---------- filtering / ordering ---------- */
 
 function matches(it) {
+  if (ui.type && it.type !== ui.type) return false;
   if (ui.status && it.status !== ui.status) return false;
   if (!ui.showDone && it.status === 'done') return false;
   if (ui.team && it.team !== ui.team) return false;
@@ -188,7 +197,7 @@ function visibleRows() {
 
 function renderStats() {
   const counts = {};
-  state.items.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1; });
+  state.items.filter(i => !ui.type || i.type === ui.type).forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1; });
   $('#stats').innerHTML = Object.keys(STATUSES).map(k => {
     const n = counts[k] || 0;
     return `<button class="stat${ui.status === k ? ' on' : ''}${n ? '' : ' zero'}" data-status="${k}" aria-pressed="${ui.status === k}">` +
@@ -220,8 +229,9 @@ function dateInfo(it) {
 
 function renderList() {
   const rows = visibleRows();
-  $('#count').textContent = `${rows.length} of ${state.items.length}`;
-  if (!state.items.length) { $('#list').innerHTML = `<div class="empty">Nothing here yet. Add your first entry with “+ New entry”.</div>`; return; }
+  const total = state.items.filter(i => !ui.type || i.type === ui.type).length;
+  $('#count').textContent = `${rows.length} of ${total}`;
+  if (!total) { $('#list').innerHTML = `<div class="empty">Nothing here yet. Add one with “+ New entry”.</div>`; return; }
   if (!rows.length) { $('#list').innerHTML = `<div class="empty">No entries match the current filters.</div>`; return; }
   $('#list').innerHTML = rows.map(({ it, child }) => {
     const n = lastNote(it);
@@ -230,7 +240,7 @@ function renderList() {
     return `<div class="row${child ? ' child' : ''}" data-id="${it.id}" tabindex="0" role="button">
       <div>${statusIcon(it.status)}</div>
       <div><div class="name">${esc(it.name || 'Untitled')}</div>
-        <div class="sub"><span class="tag">${it.type === 'track' ? 'Track' : 'Project'}</span>${it.team ? esc(it.team) : ''}${parent ? ` · in ${esc(parent.name)}` : ''}</div></div>
+        <div class="sub"><span class="tag">${TYPES[it.type]}</span>${it.team ? esc(it.team) : ''}${parent ? ` · in ${esc(parent.name)}` : ''}</div></div>
       <div class="clamp">${it.summary ? esc(it.summary) : '<span class="muted">No summary yet</span>'}</div>
       <div class="dates">${dateInfo(it)}</div>
       <div>${n ? `${chip(n.label || 'Note')} <span class="muted">${ago(n.at)}</span><div class="clamp muted">${esc(n.text)}</div>` : '<span class="muted">No notes</span>'}
@@ -347,8 +357,7 @@ function renderDrawer() {
     </div>
     <div class="grid2">
       <label>Type<select data-f="type">
-        <option value="project"${it.type === 'project' ? ' selected' : ''}>Project</option>
-        <option value="track"${it.type === 'track' ? ' selected' : ''}>Track (major item)</option></select></label>
+        ${Object.entries(TYPES).map(([k, v]) => `<option value="${k}"${it.type === k ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
       <label>Status<select data-f="status">${Object.entries(STATUSES).map(([k, v]) => `<option value="${k}"${it.status === k ? ' selected' : ''}>${v.label}</option>`).join('')}</select></label>
       <label>Team / owner<input data-f="team" value="${esc(it.team)}" list="teams" placeholder="e.g. Infrastructure"></label>
       <label>Part of<select data-f="parentId"${canNest ? '' : ' disabled'}>
@@ -360,12 +369,12 @@ function renderDrawer() {
     <datalist id="teams">${[...new Set(state.items.map(i => i.team).filter(Boolean))].map(t => `<option value="${esc(t)}">`).join('')}</datalist>
     <div class="d-section">
       <h3>Detailed notes</h3>
-      <textarea data-f="details" rows="6" placeholder="Background, stakeholders, context — anything you want kept with this entry">${esc(it.details)}</textarea>
+      <textarea data-f="details" rows="9" placeholder="Background, stakeholders, context — anything you want kept with this entry">${esc(it.details)}</textarea>
     </div>
     <div class="d-section">
       <h3>Notes log</h3>
       <div class="composer">
-        <textarea id="n-text" rows="3" placeholder="Add a note…  (Ctrl/⌘+Enter to save)"></textarea>
+        <textarea id="n-text" rows="4" placeholder="Add a note…  (Ctrl/⌘+Enter to save)"></textarea>
         <div class="bar">
           <select id="n-label" aria-label="Label">${state.labels.map(l => `<option>${esc(l)}</option>`).join('')}<option value="__new">+ New label…</option></select>
           <button id="n-add" class="primary">Add note</button>
@@ -423,8 +432,16 @@ function newLabel() {
 /* ---------- events ---------- */
 
 function renderAll() {
+  document.querySelector('.top h1').textContent = TAB_TITLES[ui.type];
+  document.title = `${TAB_TITLES[ui.type]} – PMO Hub`;
   renderStats(); renderFilters(); renderList(); renderGantt();
 }
+
+window.addEventListener('hashchange', () => {
+  if (ui.openId) closeDrawer();
+  ui.type = hashType(); ui.status = '';
+  renderAll();
+});
 
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
@@ -447,7 +464,7 @@ $('#list').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key ===
 $('#gantt').addEventListener('click', openFrom);
 
 $('#btn-new').addEventListener('click', () => {
-  const it = blankItem();
+  const it = blankItem({ type: ui.type || 'project' });
   state.items.push(it); save();
   ui.lastNewId = it.id;
   openDrawer(it.id, true);
