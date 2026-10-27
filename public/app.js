@@ -7,7 +7,7 @@ const STALE_DAYS = 14;
 
 /* ---------- status & labels ---------- */
 
-const { STATUSES, statusIcon } = window.PMOStatus; // defined in status.js
+const { STATUSES, statusIcon, labelColor } = window.PMOStatus; // defined in status.js
 
 const TYPES = { project: 'Project', vendor: 'Vendor', roadmap: 'Roadmap', quickwin: 'Quick Win' };
 const TAB_TITLES = { '': 'Summary', project: 'Projects', vendor: 'Vendors', roadmap: 'Roadmap', quickwin: 'Quick Wins' };
@@ -17,17 +17,7 @@ const PIN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5"/
 const TARGET_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>';
 
 const DEFAULT_LABELS = ['Update', 'Decision', 'Risk', 'Blocker', 'Action', 'Question', 'FYI'];
-const LABEL_COLORS = {
-  Update: 'var(--blue)', Decision: 'var(--purple)', Risk: 'var(--amber)', Blocker: 'var(--red)',
-  Action: 'var(--green)', Question: 'var(--pink)', FYI: 'var(--muted)',
-};
 
-function labelColor(l) {
-  if (LABEL_COLORS[l]) return LABEL_COLORS[l];
-  let h = 0;
-  for (const ch of l) h = (h * 31 + ch.charCodeAt(0)) % 360;
-  return `hsl(${h} 55% 45%)`;
-}
 const chip = (l, extra = '') => `<span class="chip" style="--c:${labelColor(l)}"${extra}>${esc(l)}</span>`;
 
 /* ---------- helpers ---------- */

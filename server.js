@@ -5,7 +5,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { manager, cleanState, cleanSync } = require('./server/data');
+const { manager, cleanState, cleanSync, cleanJournalSync } = require('./server/data');
 const mssql = () => require('./server/sqlserver');
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -238,6 +238,19 @@ async function handle(req, res) {
     }
     if (url.pathname === '/api/data/sync' && req.method === 'POST') {
       await store.sync(cleanSync(await readJson(req, BIG_JSON)));
+      return send(res, 200, { ok: true });
+    }
+  }
+
+  /* ---- general notes (the diary): private to each signed-in user ---- */
+  if (url.pathname === '/api/journal' || url.pathname === '/api/journal/sync') {
+    if (!user) return send(res, 401, { error: 'Sign in required' });
+    const store = manager.current();
+    if (url.pathname === '/api/journal' && req.method === 'GET') {
+      return send(res, 200, { notes: await store.getJournal(user.email) });
+    }
+    if (url.pathname === '/api/journal/sync' && req.method === 'POST') {
+      await store.syncJournal(user.email, cleanJournalSync(await readJson(req)));
       return send(res, 200, { ok: true });
     }
   }

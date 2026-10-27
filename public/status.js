@@ -25,5 +25,18 @@ function statusIcon(s, size = 18) {
     `<svg width="${size}" height="${size}" viewBox="0 0 16 16" aria-hidden="true">${GLYPH[s] || GLYPH.notstarted}</svg></span>`;
 }
 
-window.PMOStatus = { STATUSES, statusIcon };
+const LABEL_COLORS = {
+  Update: 'var(--blue)', Decision: 'var(--purple)', Risk: 'var(--amber)', Blocker: 'var(--red)',
+  Action: 'var(--green)', Question: 'var(--pink)', FYI: 'var(--muted)',
+  Meeting: 'var(--blue)', Idea: 'var(--purple)', 'Follow-up': 'var(--green)', Reminder: 'var(--amber)', Personal: 'var(--pink)',
+};
+
+function labelColor(l) {
+  if (LABEL_COLORS[l]) return LABEL_COLORS[l];
+  let h = 0;
+  for (const ch of l) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${h} 55% 45%)`;
+}
+
+window.PMOStatus = { STATUSES, statusIcon, labelColor };
 })();

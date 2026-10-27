@@ -42,7 +42,7 @@
   const describe = i =>
     `Connected to SQL Server ${i.serverVersion} (${i.edition}).\n` +
     (i.databaseExists ? 'The database exists. ' : `The database doesn't exist yet${i.canCreateDatabase ? ', but this login can create it.' : ' and this login is not allowed to create databases.'} `) +
-    (i.schemaInstalled ? `PMO Hub schema is installed (version ${i.schemaVersion})${i.hasData ? ' and already holds data.' : '.'}` : (i.databaseExists ? 'PMO Hub schema is not installed yet.' : ''));
+    (i.schemaInstalled ? (i.needsUpdate ? `PMO Hub schema is installed (version ${i.schemaVersion}) but is out of date. Press Create schema in step 3 to update it; your data is left alone.` : `PMO Hub schema is installed (version ${i.schemaVersion})${i.hasData ? ' and already holds data.' : '.'}`) : (i.databaseExists ? 'PMO Hub schema is not installed yet.' : ''));
 
   $('st-test').addEventListener('click', () => busy(['st-test'], async () => {
     show('st-test-msg', 'Connecting…', 'info');

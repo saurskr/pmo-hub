@@ -23,6 +23,7 @@ node server.js add-user someone@example.com 'a-password' [admin]
 - `public/login.html` — sign-in (always light theme). Replace `public/logo.png` with your logo.
 - `public/index.html` — Summary (sidebar + page bar + content).
   The sidebar lists Summary and the Projects / Vendors / Roadmap / Quick Wins tabs; each tab can be expanded to show its entries (click one to open it; the choice of which tabs are open is remembered). Entries have shareable addresses like `/#vendor/<id>`.
+- `public/notes.html` — Notes: a month calendar and a day-by-day diary of general notes (not tied to an entry). Each person's notes are private to them; they're saved through the same store as everything else. Day with notes show a dot; there is search across all your notes.
 - `public/admin.html` — Administration (admins only). Currently: SAML SSO settings.
 - `public/theme.css` — all colours and style tokens (light = Warm Paper, dark = Midnight).
 
@@ -43,7 +44,7 @@ Administration → **Data storage** chooses where entries and notes live.
 - **SQL Server Express**: PMO Hub does not download or install it. The page links to
   Microsoft's download; once it's installed you (1) enter the server, database, SQL login and
   password, (2) *Test connection*, (3) *Create schema* (creates the database if needed, then
-  tables under a `pmo` schema; safe to re-run), and (4) *Use SQL Server for storage*, optionally
+  tables under a `pmo` schema; safe to re-run, and it upgrades an older schema in place — the Notes feature added schema version 2, so existing SQL Server users press *Create schema* again once), and (4) *Use SQL Server for storage*, optionally
   copying the current data across. You can switch back to the file at any time.
 - Express needs **Mixed Mode** authentication (PMO Hub uses a SQL login), **TCP/IP enabled** in
   SQL Server Configuration Manager, and — for a named instance such as `localhost\SQLEXPRESS` —

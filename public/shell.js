@@ -10,7 +10,8 @@
     me = await r.json();
   } catch (e) { location.href = '/login.html'; return; }
 
-  const onAdmin = location.pathname.endsWith('admin.html');
+  const page = location.pathname.endsWith('admin.html') ? 'admin' : location.pathname.endsWith('notes.html') ? 'notes' : 'summary';
+  const onAdmin = page === 'admin';
   const TABS = [['', 'Summary'], ['project', 'Projects'], ['vendor', 'Vendors'], ['roadmap', 'Roadmap'], ['quickwin', 'Quick Wins']];
   const currentTab = () => location.hash.slice(1).split('/')[0];
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -30,7 +31,7 @@
     .join('');
 
   const tabLink = ([id, text]) => {
-    const current = !onAdmin && currentTab() === id ? ' aria-current="page"' : '';
+    const current = page === 'summary' && currentTab() === id ? ' aria-current="page"' : '';
     if (!id) return `<a href="/#" data-tab=""${current}>${text}</a>`;
     const count = items.filter(i => i.type === id).length;
     const isOpen = !!open[id];
@@ -55,7 +56,9 @@
   const nav = document.getElementById('nav');
   if (window.pmoItems) items = window.pmoItems;
   const renderNav = () => {
-    nav.innerHTML = TABS.map(tabLink).join('') +
+    nav.innerHTML = tabLink(TABS[0]) +
+      `<a href="/notes.html"${page === 'notes' ? ' aria-current="page"' : ''}>Notes</a>` +
+      TABS.slice(1).map(tabLink).join('') +
       (me.role === 'admin' ? `<hr><a href="/admin.html"${onAdmin ? ' aria-current="page"' : ''}>Administration</a>` : '');
   };
   renderNav();
@@ -83,7 +86,7 @@
 
   window.addEventListener('hashchange', () => {
     nav.querySelectorAll('[data-tab]').forEach(a => {
-      if (!onAdmin && a.dataset.tab === currentTab()) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+      if (page === 'summary' && a.dataset.tab === currentTab()) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
   });
 

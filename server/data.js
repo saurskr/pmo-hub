@@ -70,6 +70,23 @@ function cleanLabels(raw) {
   return [...new Set(raw.map(l => str(l, 100).trim()).filter(Boolean))].slice(0, 200);
 }
 
+// General notes (the diary). Owner is set by the server from the signed-in user, never by the browser.
+function cleanJournalNote(raw) {
+  if (!raw || typeof raw !== 'object') throw bad('Invalid note');
+  const date = cleanDate(raw.date);
+  if (!date) throw bad('A note needs a date');
+  const text = str(raw.text, 50000);
+  if (!text.trim()) throw bad('A note needs some text');
+  return { id: cleanId(raw.id, 'note'), date, label: str(raw.label, 100), text, createdAt: cleanIso(raw.createdAt), updatedAt: cleanIso(raw.updatedAt) };
+}
+function cleanJournalSync(raw) {
+  if (!raw || typeof raw !== 'object') throw bad('Invalid request');
+  return {
+    upserts: Array.isArray(raw.upserts) ? raw.upserts.slice(0, 200).map(cleanJournalNote) : [],
+    deletes: Array.isArray(raw.deletes) ? raw.deletes.slice(0, 200).map(x => cleanId(x, 'note')) : [],
+  };
+}
+
 function cleanState(raw) {
   if (!raw || !Array.isArray(raw.items)) throw bad('Invalid data');
   if (raw.items.length > 5000) throw bad('Too many entries');
@@ -92,7 +109,8 @@ class FileStore {
 
   async init() {
     try { this.data = JSON.parse(fs.readFileSync(STORE_FILE, 'utf8')); }
-    catch (e) { this.data = { initialized: false, items: [], labels: [] }; }
+    catch (e) { this.data = { initialized: false, items: [], labels: [], journal: [] }; }
+    if (!Array.isArray(this.data.journal)) this.data.journal = [];
   }
 
   _write() {
@@ -109,7 +127,10 @@ class FileStore {
     return run;
   }
 
-  async getAll() { return JSON.parse(JSON.stringify(this.data)); }
+  async getAll() {
+    const { journal, ...rest } = this.data; // general notes are served separately, per user
+    return JSON.parse(JSON.stringify(rest));
+  }
 
   async sync({ upserts, deletes, labels }) {
     return this._serial(() => {
@@ -125,10 +146,29 @@ class FileStore {
 
   async replace({ items, labels }) {
     return this._serial(() => {
-      this.data = { initialized: true, items, labels };
+      this.data = { ...this.data, initialized: true, items, labels };
       this._write();
     });
   }
+
+  /* general notes: each person only ever sees their own */
+  async getJournal(owner) {
+    return this.data.journal.filter(n => n.owner === owner).map(({ owner: _o, ...n }) => n);
+  }
+
+  async syncJournal(owner, { upserts, deletes }) {
+    return this._serial(() => {
+      const byId = new Map(this.data.journal.map(n => [n.id, n]));
+      upserts.forEach(n => { const ex = byId.get(n.id); if (!ex || ex.owner === owner) byId.set(n.id, { ...n, owner }); });
+      deletes.forEach(id => { const ex = byId.get(id); if (ex && ex.owner === owner) byId.delete(id); });
+      this.data.journal = [...byId.values()];
+      this._write();
+    });
+  }
+
+  // Whole-store copy (used when switching stores); includes every owner.
+  async exportJournal() { return JSON.parse(JSON.stringify(this.data.journal)); }
+  async importJournal(notes) { return this._serial(() => { this.data.journal = notes; this._write(); }); }
 
   async close() {}
 }
@@ -188,6 +228,7 @@ const manager = {
       if (!dest.initialized) {
         const src = await this.store.getAll();
         await next.replace({ items: src.items, labels: src.labels });
+        await next.importJournal(await this.store.exportJournal());
         copied = true;
       }
     }
@@ -200,4 +241,4 @@ const manager = {
   },
 };
 
-module.exports = { manager, FileStore, cleanState, cleanSync, writeStorageConfig };
+module.exports = { manager, FileStore, cleanState, cleanSync, cleanJournalSync, writeStorageConfig };

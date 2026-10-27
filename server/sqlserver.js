@@ -2,7 +2,7 @@
 // SQL Server (Express) storage: connection checks, schema creation, and the store itself.
 // Uses the "mssql" package, loaded lazily so the app still runs without it.
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2; // 2 added pmo.JournalNote (general notes)
 const DB_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 
 function driver() {
@@ -101,7 +101,7 @@ async function inspect(cfg) {
       serverVersion: r.version, edition: r.edition,
       databaseExists: r.dbId != null,
       canCreateDatabase: r.dbcreator === 1 || r.sysadmin === 1,
-      schemaInstalled: false, schemaVersion: null, hasData: false,
+      schemaInstalled: false, schemaVersion: null, needsUpdate: false, hasData: false,
     };
     if (out.databaseExists) {
       let db;
@@ -112,6 +112,7 @@ async function inspect(cfg) {
           out.schemaInstalled = true;
           const v = (await db.request().query(`SELECT V FROM pmo.Meta WHERE K = N'schemaVersion'`)).recordset[0];
           out.schemaVersion = v ? Number(v.V) : null;
+          out.needsUpdate = (out.schemaVersion || 0) < SCHEMA_VERSION;
           out.hasData = (await db.request().query(`SELECT COUNT(*) AS n FROM pmo.Item`)).recordset[0].n > 0;
         }
       } finally { await db.close(); }
@@ -167,13 +168,29 @@ const DDL = [
      V nvarchar(200) NOT NULL
    )`,
 
-  `IF NOT EXISTS (SELECT 1 FROM pmo.Meta WHERE K = N'schemaVersion')
-   INSERT INTO pmo.Meta (K, V) VALUES (N'schemaVersion', N'${SCHEMA_VERSION}')`,
+  `IF OBJECT_ID(N'pmo.JournalNote', N'U') IS NULL
+   CREATE TABLE pmo.JournalNote (
+     Id        nvarchar(32)  NOT NULL CONSTRAINT PK_pmo_JournalNote PRIMARY KEY,
+     Owner     nvarchar(320) NOT NULL,
+     NoteDate  date          NOT NULL,
+     Label     nvarchar(100) NOT NULL CONSTRAINT DF_pmo_JournalNote_Label DEFAULT N'',
+     Body      nvarchar(max) NOT NULL,
+     CreatedAt datetime2(3)  NOT NULL,
+     UpdatedAt datetime2(3)  NOT NULL
+   )`,
+
+  `IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_pmo_JournalNote_OwnerDate' AND object_id = OBJECT_ID(N'pmo.JournalNote'))
+   CREATE INDEX IX_pmo_JournalNote_OwnerDate ON pmo.JournalNote (Owner, NoteDate)`,
+
+  // Always last: records which version of the schema is now in place.
+  `IF EXISTS (SELECT 1 FROM pmo.Meta WHERE K = N'schemaVersion') UPDATE pmo.Meta SET V = N'${SCHEMA_VERSION}' WHERE K = N'schemaVersion'
+   ELSE INSERT INTO pmo.Meta (K, V) VALUES (N'schemaVersion', N'${SCHEMA_VERSION}')`,
 ];
 
 async function createSchema(cfg, createDatabase) {
   const info = await inspect(cfg);
   const done = [];
+  const before = info.schemaVersion;
   if (!info.databaseExists) {
     if (!createDatabase) throw new Error(`The database "${cfg.database}" doesn't exist. Tick "Create the database if it doesn't exist", or create it first.`);
     if (!info.canCreateDatabase) throw new Error(`This login isn't allowed to create databases. Ask your SQL Server admin to create "${cfg.database}" (or add the login to the dbcreator role), then try again.`);
@@ -188,7 +205,9 @@ async function createSchema(cfg, createDatabase) {
   } catch (e) {
     throw new Error(`Couldn't create the tables. The login needs permission to create tables in "${cfg.database}" (db_owner is simplest). (${e.message})`);
   } finally { await db.close(); }
-  done.push(info.schemaInstalled ? 'Schema was already installed; checked and left your data alone' : 'Created schema pmo with tables Item, Note, Label and Meta');
+  done.push(!info.schemaInstalled ? 'Created schema pmo with tables Item, Note, Label, JournalNote and Meta'
+    : (before || 0) < SCHEMA_VERSION ? `Updated the schema from version ${before} to ${SCHEMA_VERSION}; your data was left alone`
+    : 'Schema was already up to date; checked and left your data alone');
   return { steps: done, ...(await inspect(cfg)) };
 }
 
@@ -211,6 +230,86 @@ class SqlStore {
     try { this.pool = await connect(this.cfg, this.cfg.database); } catch (e) { throw new Error(explain(e)); }
     const t = (await this.pool.request().query(`SELECT OBJECT_ID(N'pmo.Item', N'U') AS item`)).recordset[0];
     if (!t.item) { await this.close(); throw new Error(`The PMO Hub schema isn't installed in "${this.cfg.database}". Create it from Administration first.`); }
+  }
+
+  // Schema version 1 databases don't have the notes table until an admin presses "Create schema" again.
+  async _journalReady() {
+    if (!this.hasJournal) {
+      const t = (await this.pool.request().query(`SELECT OBJECT_ID(N'pmo.JournalNote', N'U') AS t`)).recordset[0];
+      this.hasJournal = !!t.t;
+    }
+    if (!this.hasJournal) throw this._needsUpdate();
+  }
+
+  _needsUpdate() {
+    return Object.assign(new Error('Notes need a database update. An administrator should open Administration → Data storage and press "Create schema" to update it.'), { status: 503 });
+  }
+
+  // Run a notes query; if the table turns out to be missing, report the same friendly message.
+  async _journal(fn) {
+    await this._journalReady();
+    try { return await fn(); }
+    catch (e) {
+      if (/Invalid object name 'pmo\.JournalNote'/i.test(e.message)) { this.hasJournal = false; throw this._needsUpdate(); }
+      throw e;
+    }
+  }
+
+  async getJournal(owner) {
+    return this._journal(async () => {
+    const r = await this.pool.request().input('o', driver().NVarChar(320), owner).query(
+      `SELECT Id, CONVERT(char(10), NoteDate, 23) AS NoteDate, Label, Body,
+              CONVERT(char(23), CreatedAt, 126) AS CreatedAt, CONVERT(char(23), UpdatedAt, 126) AS UpdatedAt
+       FROM pmo.JournalNote WHERE Owner = @o ORDER BY NoteDate, CreatedAt`);
+    return r.recordset.map(n => ({ id: n.Id, date: n.NoteDate, label: n.Label, text: n.Body, createdAt: iso(n.CreatedAt), updatedAt: iso(n.UpdatedAt) }));
+    });
+  }
+
+  async syncJournal(owner, { upserts, deletes }) {
+    return this._journal(() => this._tx(async (sql, tx) => {
+      for (const n of upserts) {
+        const r = new sql.Request(tx);
+        r.input('id', sql.NVarChar(32), n.id); r.input('o', sql.NVarChar(320), owner);
+        r.input('d', sql.VarChar(10), n.date); r.input('label', sql.NVarChar(100), n.label);
+        r.input('body', sql.NVarChar(sql.MAX), n.text);
+        r.input('c', sql.VarChar(30), n.createdAt); r.input('u', sql.VarChar(30), n.updatedAt);
+        // Update only your own note; insert only if nobody (including someone else) already has that id.
+        await r.query(
+          `UPDATE pmo.JournalNote SET NoteDate = CONVERT(date, @d, 23), Label = @label, Body = @body, UpdatedAt = CONVERT(datetime2(3), @u, 127)
+           WHERE Id = @id AND Owner = @o;
+           IF @@ROWCOUNT = 0 AND NOT EXISTS (SELECT 1 FROM pmo.JournalNote WHERE Id = @id)
+             INSERT INTO pmo.JournalNote (Id, Owner, NoteDate, Label, Body, CreatedAt, UpdatedAt)
+             VALUES (@id, @o, CONVERT(date, @d, 23), @label, @body, CONVERT(datetime2(3), @c, 127), CONVERT(datetime2(3), @u, 127))`);
+      }
+      for (const id of deletes) {
+        await new sql.Request(tx).input('id', sql.NVarChar(32), id).input('o', sql.NVarChar(320), owner)
+          .query(`DELETE FROM pmo.JournalNote WHERE Id = @id AND Owner = @o`);
+      }
+    }));
+  }
+
+  async exportJournal() {
+    return this._journal(async () => {
+    const r = await this.pool.request().query(
+      `SELECT Id, Owner, CONVERT(char(10), NoteDate, 23) AS NoteDate, Label, Body,
+              CONVERT(char(23), CreatedAt, 126) AS CreatedAt, CONVERT(char(23), UpdatedAt, 126) AS UpdatedAt FROM pmo.JournalNote`);
+    return r.recordset.map(n => ({ id: n.Id, owner: n.Owner, date: n.NoteDate, label: n.Label, text: n.Body, createdAt: iso(n.CreatedAt), updatedAt: iso(n.UpdatedAt) }));
+    });
+  }
+
+  async importJournal(notes) {
+    return this._journal(() => this._tx(async (sql, tx) => {
+      await new sql.Request(tx).query(`DELETE FROM pmo.JournalNote`);
+      for (const n of notes) {
+        await new sql.Request(tx)
+          .input('id', sql.NVarChar(32), n.id).input('o', sql.NVarChar(320), n.owner)
+          .input('d', sql.VarChar(10), n.date).input('label', sql.NVarChar(100), n.label)
+          .input('body', sql.NVarChar(sql.MAX), n.text)
+          .input('c', sql.VarChar(30), n.createdAt).input('u', sql.VarChar(30), n.updatedAt)
+          .query(`INSERT INTO pmo.JournalNote (Id, Owner, NoteDate, Label, Body, CreatedAt, UpdatedAt)
+                  VALUES (@id, @o, CONVERT(date, @d, 23), @label, @body, CONVERT(datetime2(3), @c, 127), CONVERT(datetime2(3), @u, 127))`);
+      }
+    }));
   }
 
   async close() { if (this.pool) { const p = this.pool; this.pool = null; await p.close().catch(() => {}); } }
