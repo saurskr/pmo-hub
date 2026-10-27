@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PMO Hub – Focus mockup</title>
+<link rel="stylesheet" href="../public/theme.css">
+<style>
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 var(--font)}
+.wrap{max-width:1120px;margin:0 auto;padding:24px}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:28px 0 10px}
+p.note{margin:0 0 10px;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 1px 3px rgba(60,40,10,.06)}
+.phead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.phead b{font-size:15px}.count{margin-left:auto;display:flex;gap:5px;align-items:center;color:var(--muted);font-size:13px}
+.dots{display:flex;gap:4px}.dots i{width:9px;height:9px;border-radius:50%;background:var(--accent)}.dots i.e{background:none;border:1.5px solid var(--line)}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:14px}
+.fc{position:relative;border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:var(--r-sm);padding:12px;display:flex;flex-direction:column;gap:6px;background:var(--surface-2);min-height:170px}
+.fc .t{display:flex;gap:6px;align-items:center;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.fc .n{font-weight:700;font-size:14px;line-height:1.3}
+.fc .w{font-size:13px;color:var(--text)}
+.fc .l{margin-top:auto;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.fc.empty{border:2px dashed var(--line);border-top:2px dashed var(--line);background:none;align-items:center;justify-content:center;text-align:center;color:var(--muted);gap:8px}
+.ic{width:16px;height:16px;border-radius:50%;background:var(--c);display:inline-block;flex:none}.ic.tri{border-radius:0;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.chip{display:inline-block;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;line-height:20px;background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 38%,transparent)}
+.warn{color:var(--red);font-weight:600}
+/* toggles */
+.tg{border:0;background:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:var(--r-sm);display:inline-flex;align-items:center;gap:6px;font:inherit}
+.tg:hover{background:var(--surface-2);color:var(--text)}
+.tg svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tg.on{color:var(--accent)}.tg.on svg{fill:currentColor}
+.pinA.on svg{transform:rotate(35deg)}
+.tg:disabled{opacity:.4;cursor:not-allowed}
+.pill{border:1px solid var(--line);padding:5px 12px 5px 8px;border-radius:999px;background:var(--surface)}
+.pill.on{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}.pill.on svg{fill:none}
+.pill small{opacity:.75;font-size:12px}
+.ribbon{position:absolute;top:-3px;right:12px;width:22px;height:30px;border:0;padding:0;cursor:pointer;color:var(--line);background:none}
+.ribbon svg{width:22px;height:30px;fill:currentColor;stroke:none}
+.ribbon:hover{color:color-mix(in srgb,var(--accent) 45%,var(--line))}.ribbon.on{color:var(--accent)}
+.row{display:grid;grid-template-columns:26px 1.3fr 1.5fr 130px 40px;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);align-items:center}
+.row:last-child{border:0}.row small{color:var(--muted)}.row.f{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.opts{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.opt{display:flex;flex-direction:column;gap:12px;padding:16px}
+.opt h3{margin:0;font-size:15px}.opt .d{color:var(--muted);font-size:13px}
+.states{display:flex;flex-direction:column;gap:8px}.states div{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}.states div>span:first-child{width:78px}
+.hd{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface)}
+.hd b{font-size:16px;flex:1}
+.fcw{position:relative;border:1px solid var(--line);border-radius:var(--r-sm);padding:12px;height:70px;background:var(--surface-2)}
+.tip{font-size:12px;background:var(--text);color:var(--bg);padding:6px 9px;border-radius:6px;display:inline-block}
+</style></head><body><div class="wrap">
+<h1>Focus — mockup</h1>
+<p class="note">Light theme shown; dark follows the same tokens. Sample data only.</p>
+
+<h2>Where it lives — top of Summary</h2>
+<div class="panel">
+ <div class="phead"><b>Focus</b><span class="note" style="margin:0">The five things that need you most right now</span>
+  <span class="count"><span class="dots"><i></i><i></i><i></i><i></i><i class="e"></i></span>4 of 5</span></div>
+ <div class="cards">
+  <div class="fc"><div class="t"><span class="ic tri" style="--c:var(--amber)"></span>Project</div><div class="n">ERP migration</div><div class="w">Why now: cutover date locked, mapping sign-off late.</div><div class="l"><span><span class="chip" style="--c:var(--amber)">Risk</span> 2d ago</span><span class="warn">Ends in 143d</span></div></div>
+  <div class="fc"><div class="t"><span class="ic" style="--c:var(--red)"></span>Project</div><div class="n">Data mapping sign-off</div><div class="w">Why now: blocks UAT start.</div><div class="l"><span><span class="chip" style="--c:var(--red)">Blocker</span> 3d ago</span><span class="warn">Overdue 5d</span></div></div>
+  <div class="fc"><div class="t"><span class="ic tri" style="--c:var(--amber)"></span>Vendor</div><div class="n">Cloud vendor contract renewal</div><div class="w">Why now: 3-year commit decision due.</div><div class="l"><span><span class="chip" style="--c:var(--blue)">Question</span> yesterday</span><span>Ends in 35d</span></div></div>
+  <div class="fc"><div class="t"><span class="ic" style="--c:var(--grey);background:none;border:2px dashed var(--grey)"></span>Roadmap</div><div class="n">AI adoption program</div><div class="w">Why now: agree sponsor before budget cycle.</div><div class="l"><span><span class="chip" style="--c:var(--pink)">Question</span> 4d ago</span><span>Starts in 30d</span></div></div>
+  <div class="fc empty"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><div>One slot free<br><small>Pin any entry to add it</small></div></div>
+ </div>
+</div>
+
+<h2>Pin toggle — three options</h2>
+<div class="opts">
+ <div class="panel opt"><h3>A · Pin icon</h3><div class="d">Quiet icon button. Outline when not pinned; filled and tilted when pinned. Lives at the end of each row and in the entry header.</div>
+  <div class="states">
+   <div><span>Not pinned</span><button class="tg pinA"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button></div>
+   <div><span>Pinned</span><button class="tg pinA on"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button></div>
+   <div><span>Focus full</span><button class="tg pinA" disabled><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="tip">Focus is full — swap one out</span></div>
+  </div>
+  <div class="hd"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="var(--amber)"/></svg><b>ERP migration</b><button class="tg pinA on"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button></div>
+ </div>
+ <div class="panel opt"><h3>B · Focus pill with counter</h3><div class="d">A labelled button with a target icon and "3/5". Clearer than an icon, and the counter shows how many slots are left. Best in the entry header; the rows keep a small target icon.</div>
+  <div class="states">
+   <div><span>Not pinned</span><button class="tg pill"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>Add to Focus <small>4/5</small></button></div>
+   <div><span>Pinned</span><button class="tg pill on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>In Focus <small>5/5</small></button></div>
+   <div><span>Focus full</span><button class="tg pill" disabled><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>Add to Focus <small>5/5</small></button></div>
+  </div>
+  <div class="hd"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="var(--amber)"/></svg><b>ERP migration</b><button class="tg pill on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>In Focus <small>4/5</small></button></div>
+ </div>
+ <div class="panel opt"><h3>C · Ribbon</h3><div class="d">A bookmark ribbon hanging from the top edge of a card or row. Grey when free, accent when pinned. Distinctive and visible when scanning, but takes more room.</div>
+  <div class="states">
+   <div><span>Not pinned</span><div class="fcw" style="width:150px"><button class="ribbon"><svg viewBox="0 0 22 30"><path d="M0 0h22v30l-11-7-11 7z"/></svg></button></div></div>
+   <div><span>Pinned</span><div class="fcw" style="width:150px;border-top:3px solid var(--accent)"><button class="ribbon on" style="top:-3px"><svg viewBox="0 0 22 30"><path d="M0 0h22v30l-11-7-11 7z"/></svg></button></div></div>
+  </div>
+  <div class="hd"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="var(--amber)"/></svg><b>ERP migration</b><span class="chip" style="--c:var(--accent)">In Focus</span><button class="ribbon on" style="position:static;height:30px"><svg viewBox="0 0 22 30"><path d="M0 0h22v30l-11-7-11 7z"/></svg></button></div>
+ </div>
+</div>
+
+<h2>In the Summary list — pinned rows are tinted (shown with option A)</h2>
+<div class="panel">
+ <div class="row f"><span class="ic tri" style="--c:var(--amber)"></span><div><b>ERP migration</b><br><small>Project · Finance Systems</small></div><div>Cutover date holding, but data-mapping sign-off is late.</div><div>29 Jun → 26 Mar</div><button class="tg pinA on"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button></div>
+ <div class="row"><span class="ic" style="--c:var(--green)"></span><div><b>Zero-trust network rollout</b><br><small>Project · Infrastructure</small></div><div>Phase 1 complete, branch sites next.</div><div>28 Aug → 25 Jan</div><button class="tg pinA"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button></div>
+</div>
+</div></body></html>
