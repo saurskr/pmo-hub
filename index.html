@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PMO Hub</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <h1>PMO Hub</h1>
+  <div class="top-actions">
+    <button id="btn-new" class="primary">+ New entry</button>
+    <details class="menu">
+      <summary aria-label="More actions">⋯</summary>
+      <div class="menu-pop">
+        <button id="btn-export">Export JSON</button>
+        <button id="btn-import">Import JSON…</button>
+        <button id="btn-sample">Load sample data</button>
+        <button id="btn-clear" class="danger">Delete everything</button>
+      </div>
+    </details>
+    <input type="file" id="file-import" accept="application/json" hidden>
+  </div>
+</header>
+
+<main>
+  <section id="stats" class="stats" aria-label="Status summary"></section>
+
+  <section class="filters" aria-label="Filters">
+    <input id="f-q" type="search" placeholder="Search names, teams, notes…">
+    <select id="f-team" aria-label="Team"></select>
+    <select id="f-label" aria-label="Note label"></select>
+    <select id="f-sort" aria-label="Sort">
+      <option value="attention">Sort: needs attention</option>
+      <option value="end">Sort: end date</option>
+      <option value="start">Sort: start date</option>
+      <option value="updated">Sort: recently updated</option>
+      <option value="name">Sort: name</option>
+    </select>
+    <label class="check"><input id="f-done" type="checkbox" checked> Show completed</label>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Timeline</h2>
+      <select id="f-range" aria-label="Timeline range">
+        <option value="auto">Fit everything</option>
+        <option value="3">Next 3 months</option>
+        <option value="6">Next 6 months</option>
+        <option value="12">Next 12 months</option>
+      </select>
+    </div>
+    <div id="gantt"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Summary</h2><span id="count" class="muted"></span></div>
+    <div id="list"></div>
+  </section>
+</main>
+
+<div id="scrim" hidden></div>
+<aside id="drawer" aria-label="Entry details" hidden></aside>
+
+<script src="app.js"></script>
+</body>
+</html>
