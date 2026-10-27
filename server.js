@@ -5,6 +5,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { manager, cleanState, cleanSync } = require('./server/data');
+const mssql = () => require('./server/sqlserver');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -148,12 +150,12 @@ const send = (res, code, body, type = 'application/json') => {
   res.end(type === 'application/json' ? JSON.stringify(body) : body);
 };
 
-function readJson(req) {
+function readJson(req, limit = 64 * 1024) {
   return new Promise((resolve, reject) => {
-    if (!(req.headers['content-type'] || '').startsWith('application/json')) return reject(new Error('Expected JSON'));
+    if (!(req.headers['content-type'] || '').startsWith('application/json')) return reject(Object.assign(new Error('Expected JSON'), { status: 400 }));
     let size = 0; const chunks = [];
-    req.on('data', c => { size += c.length; if (size > 64 * 1024) { reject(new Error('Body too large')); req.destroy(); } else chunks.push(c); });
-    req.on('end', () => { try { resolve(JSON.parse(Buffer.concat(chunks).toString() || '{}')); } catch (e) { reject(new Error('Invalid JSON')); } });
+    req.on('data', c => { size += c.length; if (size > limit) { reject(Object.assign(new Error('Body too large'), { status: 413 })); req.destroy(); } else chunks.push(c); });
+    req.on('end', () => { try { resolve(JSON.parse(Buffer.concat(chunks).toString() || '{}')); } catch (e) { reject(Object.assign(new Error('Invalid JSON'), { status: 400 })); } });
   });
 }
 
@@ -222,10 +224,96 @@ async function handle(req, res) {
       return send(res, 200, { sso, derived: { entityId: `${base}/sso/metadata`, replyUrl: `${base}/sso/acs`, signOnUrl: `${base}/` } });
     }
   }
+  /* ---- shared project data (any signed-in user) ---- */
+  if (url.pathname === '/api/data' || url.pathname === '/api/data/sync') {
+    if (!user) return send(res, 401, { error: 'Sign in required' });
+    const store = manager.current();
+    if (url.pathname === '/api/data' && req.method === 'GET') {
+      const all = await store.getAll();
+      return send(res, 200, { ...all, storage: store.describe() });
+    }
+    if (url.pathname === '/api/data' && req.method === 'PUT') {
+      await store.replace(cleanState(await readJson(req, BIG_JSON)));
+      return send(res, 200, { ok: true });
+    }
+    if (url.pathname === '/api/data/sync' && req.method === 'POST') {
+      await store.sync(cleanSync(await readJson(req, BIG_JSON)));
+      return send(res, 200, { ok: true });
+    }
+  }
+
+  /* ---- storage settings (administrators) ---- */
+  if (url.pathname.startsWith('/api/admin/storage')) {
+    if (!user) return send(res, 401, { error: 'Sign in required' });
+    if (user.role !== 'admin') return send(res, 403, { error: 'Administrators only' });
+    return handleStorageAdmin(req, res, url);
+  }
+
   if (url.pathname.startsWith('/api/')) return send(res, 404, { error: 'Not found' });
   if (req.method !== 'GET') return send(res, 405, 'Method not allowed', 'text/plain');
   serveStatic(req, res, user);
 }
+
+const BIG_JSON = 5 * 1024 * 1024;
+
+// Admin screens show connection problems to the admin (400). Everything else that isn't the
+// caller's fault is a server error; ordinary users only get a generic message for those.
+function fail(req, res, e) {
+  const isAdminApi = req.url.startsWith('/api/admin');
+  const status = e.status || (isAdminApi ? 400 : 500);
+  let message = String(e.message).replace(/password=[^;]*/gi, 'password=***');
+  if (status >= 500 && !isAdminApi) {
+    console.error(`${req.method} ${req.url}: ${message}`);
+    message = status === 503 ? message : 'The data store had a problem. Your changes will be retried.';
+  }
+  send(res, status, { error: message });
+}
+
+async function handleStorageAdmin(req, res, url) {
+  const saved = manager.config.sql;
+  if (url.pathname === '/api/admin/storage' && req.method === 'GET') {
+    return send(res, 200, {
+      mode: manager.config.mode,
+      active: manager.store ? manager.store.describe() : null,
+      error: manager.error,
+      sql: saved ? { server: saved.server, database: saved.database, user: saved.user, encrypt: saved.encrypt, trustServerCertificate: saved.trustServerCertificate, hasPassword: !!saved.password } : null,
+      downloadUrl: DOWNLOAD_URL,
+    });
+  }
+  if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
+  const body = await readJson(req);
+  const m = mssql();
+
+  if (url.pathname === '/api/admin/storage/test') {
+    const cfg = m.cleanConnection(body, saved);
+    return send(res, 200, { ok: true, ...(await m.inspect(cfg)) });
+  }
+  if (url.pathname === '/api/admin/storage/create-schema') {
+    const cfg = m.cleanConnection(body, saved);
+    const result = await m.createSchema(cfg, body.createDatabase !== false);
+    // Remember the connection details so the form is filled in next time.
+    const { writeStorageConfig } = require('./server/data');
+    manager.config = { ...manager.config, sql: cfg };
+    writeStorageConfig(manager.config);
+    return send(res, 200, { ok: true, ...result });
+  }
+  if (url.pathname === '/api/admin/storage/activate') {
+    const copy = body.copyData === true;
+    if (body.mode === 'file') {
+      const r = await manager.activate('file', null, copy);
+      return send(res, 200, { ok: true, ...r, active: manager.store.describe() });
+    }
+    if (body.mode === 'sqlserver') {
+      const cfg = m.cleanConnection(body, saved);
+      const r = await manager.activate('sqlserver', cfg, copy);
+      return send(res, 200, { ok: true, ...r, active: manager.store.describe() });
+    }
+    return send(res, 400, { error: 'Unknown storage mode' });
+  }
+  return send(res, 404, { error: 'Not found' });
+}
+
+const DOWNLOAD_URL = 'https://www.microsoft.com/en-us/sql-server/sql-server-downloads';
 
 /* ---------- start / CLI ---------- */
 
@@ -245,7 +333,11 @@ if (process.argv[2] === 'add-user') {
   catch (e) { console.error(e.message + '\nUsage: node server.js add-user <email> <password> [admin]'); process.exit(1); }
 } else {
   bootstrapAdmin();
-  http.createServer((req, res) => {
-    handle(req, res).catch(e => send(res, 400, { error: e.message }));
-  }).listen(PORT, () => console.log(`PMO Hub running at http://localhost:${PORT}`));
+  manager.init().then(() => {
+    if (manager.error) console.error(`Storage problem: ${manager.error}\nThe app is running; fix it or switch back to file storage under Administration.`);
+    else console.log(`Storage: ${manager.store.describe()}`);
+    http.createServer((req, res) => {
+      handle(req, res).catch(e => fail(req, res, e));
+    }).listen(PORT, () => console.log(`PMO Hub running at http://localhost:${PORT}`));
+  });
 }

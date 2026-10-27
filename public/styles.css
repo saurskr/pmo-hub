@@ -166,3 +166,7 @@ dialog#swap p { margin: 0 0 12px; color: var(--muted); }
 .swap-list .nm { flex: 1; font-weight: 600; }
 .swap-list button small { color: var(--muted); }
 .swap-actions { margin-top: 14px; display: flex; justify-content: flex-end; }
+
+.save-status { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.save-status[data-kind="saving"], .save-status[data-kind="loading"] { opacity: .8; }
+.save-status[data-kind="error"] { color: var(--red); font-weight: 600; }

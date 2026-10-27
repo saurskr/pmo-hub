@@ -61,10 +61,57 @@
     <div class="actions"><button class="primary" type="submit" id="save">Save settings</button></div>
   </form>
 
+  <section class="card" id="storage-card">
+    <h2>Data storage</h2>
+    <p>Where entries and notes are kept. By default they're saved to a file on the server. You can move them to a SQL Server Express database instead.</p>
+    <div id="st-status" class="msg info" role="status">Loading…</div>
+
+    <h3 class="step">1. Get SQL Server Express</h3>
+    <p>PMO Hub doesn't download or install it for you. Install it from Microsoft, then come back to step 2.</p>
+    <div class="actions"><a class="btn" id="st-download" href="https://www.microsoft.com/en-us/sql-server/sql-server-downloads" target="_blank" rel="noopener noreferrer">Download SQL Server Express ↗</a></div>
+    <details class="tips">
+      <summary>Setup tips</summary>
+      <ul>
+        <li>During setup choose <b>Mixed Mode</b> authentication and set a password for the <code>sa</code> login. PMO Hub signs in with a SQL login, not your Windows account.</li>
+        <li>Express turns <b>TCP/IP off</b> by default. Turn it on in <i>SQL Server Configuration Manager → SQL Server Network Configuration → Protocols</i>, then restart the SQL Server service.</li>
+        <li>A default Express install is a named instance, usually <code>localhost\SQLEXPRESS</code>. Named instances need the <i>SQL Server Browser</i> service running. Otherwise use <code>localhost,1433</code> with the port you set.</li>
+        <li>For day-to-day use, create a dedicated login rather than using <code>sa</code>. It needs <code>db_owner</code> on the database, or the <code>dbcreator</code> role if PMO Hub should create the database.</li>
+      </ul>
+    </details>
+
+    <h3 class="step">2. Connect to your instance</h3>
+    <div class="grid2">
+      <label class="field">Server<input id="st-server" placeholder="localhost\SQLEXPRESS" autocomplete="off" spellcheck="false"></label>
+      <label class="field">Database name<input id="st-database" placeholder="PMOHub" autocomplete="off" spellcheck="false"></label>
+      <label class="field">SQL login<input id="st-user" autocomplete="off" spellcheck="false"></label>
+      <label class="field">Password<input id="st-password" type="password" autocomplete="new-password"></label>
+    </div>
+    <label class="toggle"><input type="checkbox" id="st-encrypt" checked> Encrypt the connection</label>
+    <label class="toggle"><input type="checkbox" id="st-trust" checked> Trust the server certificate <small class="muted">(needed for Express's default self-signed certificate)</small></label>
+    <div class="actions"><button type="button" id="st-test">Test connection</button></div>
+    <div id="st-test-msg" class="msg" role="status" hidden></div>
+
+    <h3 class="step">3. Create the schema</h3>
+    <p>Creates the tables PMO Hub needs under a <code>pmo</code> schema. Safe to run again: existing data is left alone.</p>
+    <label class="toggle"><input type="checkbox" id="st-createdb" checked> Create the database if it doesn't exist</label>
+    <div class="actions"><button type="button" id="st-create">Create schema</button></div>
+    <div id="st-create-msg" class="msg" role="status" hidden></div>
+
+    <h3 class="step">4. Start using it</h3>
+    <label class="toggle"><input type="checkbox" id="st-copy" checked> Copy the current data across <small class="muted">(only if the new store has never held data)</small></label>
+    <div class="actions">
+      <button type="button" class="primary" id="st-activate">Use SQL Server for storage</button>
+      <button type="button" id="st-file">Switch back to file storage</button>
+    </div>
+    <div id="st-activate-msg" class="msg" role="status" hidden></div>
+    <p class="muted"><small>The connection password is kept in <code>data/storage.json</code> on the server for now, as with the user file. Secure storage comes later.</small></p>
+  </section>
+
 </div>
 </div>
 </div>
 <script src="shell.js"></script>
 <script src="admin.js"></script>
+<script src="storage.js"></script>
 </body>
 </html>

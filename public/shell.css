@@ -53,3 +53,12 @@
 .toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text); }
 .toggle input { width: 18px; height: 18px; }
 .actions { display: flex; gap: 10px; align-items: center; }
+
+.step { margin: 8px 0 0; font-size: 14px; }
+.btn { display: inline-block; padding: 6px 14px; border: 1px solid var(--accent); border-radius: var(--r-sm); background: var(--surface); color: var(--accent); text-decoration: none; font-weight: 600; }
+.btn:hover { background: var(--surface-2); }
+.tips { font-size: 13px; color: var(--muted); }
+.tips summary { cursor: pointer; color: var(--accent); }
+.tips ul { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.tips code, .card code { background: var(--surface-2); padding: 0 4px; border-radius: 4px; }
+.msg { white-space: pre-line; }

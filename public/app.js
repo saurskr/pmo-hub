@@ -75,14 +75,15 @@ function ageDays(iso) { return Math.floor((Date.now() - new Date(iso).getTime())
 
 /* ---------- state ---------- */
 
-let state = load() || seed();
+let state = { items: [], labels: DEFAULT_LABELS.slice() }; // filled by init() from the server
 const hashType = () => { const h = location.hash.slice(1); return TYPES[h] ? h : ''; };
 let detailsOpen = true; // remembered across entries and visits
 try { detailsOpen = localStorage.getItem('pmo-hub-details-open') !== '0'; } catch (e) { /* ignore */ }
 const peekText = s => (s || '').split('\n').find(l => l.trim()) || 'No detailed notes yet';
 const ui = { type: hashType(), q: '', team: '', label: '', sort: 'attention', showDone: true, status: '', range: 'auto', openId: null, noteLabel: '' };
 
-function load() {
+// Data from before shared storage existed lived in this browser. Only read for a one-time copy.
+function loadLocal() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
     if (s && Array.isArray(s.items)) return normalise(s);
@@ -98,9 +99,105 @@ function normalise(s) {
   }
   return { items: s.items, labels };
 }
-function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+/* ---------- saving to the server ---------- */
+
+const pending = { upserts: new Set(), deletes: new Set(), labels: false, replace: false };
+let syncTimer = null, syncing = false, retryDelay = 1000;
+
+function setSaveStatus(kind, detail) {
+  const el = $('#save-status');
+  if (!el) return;
+  el.dataset.kind = kind;
+  el.textContent = { loading: 'Loading…', saving: 'Saving…', saved: 'Saved', error: 'Not saved — retrying' }[kind] || '';
+  el.title = detail || '';
 }
+// Keep showing the error while retries are running; only a successful save clears it.
+const showSaving = () => { const el = $('#save-status'); if (!el || el.dataset.kind !== 'error') setSaveStatus('saving'); };
+const hasPending = () => pending.replace || pending.labels || pending.upserts.size > 0 || pending.deletes.size > 0;
+
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+  if (r.status === 401) { location.href = '/login.html'; throw new Error('Signed out'); }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(data.error || `Request failed (${r.status})`), { status: r.status });
+  return data;
+}
+
+function scheduleSync(delay = 500) {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(flush, delay);
+  if (!syncing) showSaving();
+}
+
+async function flush() {
+  if (syncing || !hasPending()) return;
+  const batch = { upserts: [...pending.upserts], deletes: [...pending.deletes], labels: pending.labels, replace: pending.replace };
+  pending.upserts.clear(); pending.deletes.clear(); pending.labels = false; pending.replace = false;
+  syncing = true; showSaving();
+  try {
+    if (batch.replace) await api('PUT', '/api/data', { items: state.items, labels: state.labels });
+    else await api('POST', '/api/data/sync', {
+      upserts: batch.upserts.map(byId).filter(Boolean),
+      deletes: batch.deletes,
+      ...(batch.labels ? { labels: state.labels } : {}),
+    });
+    retryDelay = 1000;
+  } catch (e) {
+    batch.upserts.forEach(id => pending.upserts.add(id));
+    batch.deletes.forEach(id => pending.deletes.add(id));
+    pending.labels = pending.labels || batch.labels; pending.replace = pending.replace || batch.replace;
+    syncing = false;
+    setSaveStatus('error', e.message);
+    if (!e.status || e.status >= 500) { scheduleSync(retryDelay); retryDelay = Math.min(retryDelay * 2, 30000); }
+    return; // a 4xx means the server rejected the data; retrying the same request won't help
+  }
+  syncing = false;
+  if (hasPending()) scheduleSync(0); else setSaveStatus('saved');
+}
+
+const markDirty = id => { pending.deletes.delete(id); pending.upserts.add(id); scheduleSync(); };
+const markDeleted = id => { pending.upserts.delete(id); pending.deletes.add(id); scheduleSync(); };
+const markLabels = () => { pending.labels = true; scheduleSync(); };
+const save = () => { pending.replace = true; scheduleSync(); }; // replace everything (import, sample data, clear)
+
+window.addEventListener('beforeunload', e => { if (hasPending() || syncing) { e.preventDefault(); e.returnValue = ''; } });
+
+async function init() {
+  $('#list').innerHTML = '<div class="empty">Loading…</div>';
+  setSaveStatus('loading');
+  let data;
+  try { data = await api('GET', '/api/data'); }
+  catch (e) {
+    setSaveStatus('error', e.message);
+    $('#list').innerHTML = `<div class="empty"><p>Couldn't load your data.</p><p class="muted">${esc(e.message)}</p><button id="retry-load">Try again</button></div>`;
+    $('#retry-load').addEventListener('click', init);
+    return;
+  }
+  storageName = data.storage;
+  if (data.initialized) {
+    state = normalise(data);
+  } else {
+    // First run on this store: bring over anything saved in this browser, otherwise start with samples.
+    const local = loadLocal();
+    if (local && local.items.length && confirm(`This browser has ${local.items.length} entries from before shared storage was added.\n\nCopy them into the shared store?`)) state = local;
+    else if (local && local.items.length) state = { items: [], labels: DEFAULT_LABELS.slice() };
+    else state = seed();
+    save();
+  }
+  renderAll();
+  if (!hasPending()) setSaveStatus('saved', storageName);
+}
+let storageName = '';
+
+// Pick up other people's changes when returning to the tab (only if nothing of ours is waiting).
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || hasPending() || syncing || ui.openId) return;
+  try {
+    const data = await api('GET', '/api/data');
+    if (hasPending() || syncing || ui.openId || !data.initialized) return;
+    state = normalise(data); renderAll(); setSaveStatus('saved', storageName);
+  } catch (e) { /* try again next time */ }
+});
 
 function blankItem(over = {}) {
   const now = new Date().toISOString();
@@ -166,7 +263,7 @@ const pinBtn = it => `<button class="tg pin${it.focus ? ' on' : ''}" data-pin="$
 const fmtHours = n => `${Number(n)}h`;
 const hasEffort = it => it.effort !== '' && it.effort != null && !isNaN(Number(it.effort));
 
-function touch(it) { it.updatedAt = new Date().toISOString(); save(); }
+function touch(it) { it.updatedAt = new Date().toISOString(); markDirty(it.id); }
 
 /* ---------- filtering / ordering ---------- */
 
@@ -427,9 +524,9 @@ function closeDrawer() {
 }
 // Drop a just-created entry that was never filled in.
 function cleanupBlank() {
-  const before = state.items.length;
-  state.items = state.items.filter(i => i.name || i.summary || i.details || i.notes.length || i.team || i.start || i.end || i.status !== 'notstarted' || i.id !== ui.lastNewId);
-  if (state.items.length !== before) save();
+  const keep = i => i.name || i.summary || i.details || i.notes.length || i.team || i.start || i.end || i.status !== 'notstarted' || i.id !== ui.lastNewId;
+  state.items.filter(i => !keep(i)).forEach(i => markDeleted(i.id));
+  state.items = state.items.filter(keep);
   ui.lastNewId = null;
 }
 
@@ -517,7 +614,7 @@ function newLabel() {
   if (!name) return null;
   const existing = state.labels.find(l => l.toLowerCase() === name.toLowerCase());
   if (existing) return existing;
-  state.labels.push(name); save();
+  state.labels.push(name); markLabels();
   return name;
 }
 
@@ -572,7 +669,7 @@ $('#gantt').addEventListener('click', openFrom);
 
 $('#btn-new').addEventListener('click', () => {
   const it = blankItem({ type: ui.type || 'project' });
-  state.items.push(it); save();
+  state.items.push(it); // saved once it's edited
   ui.lastNewId = it.id;
   openDrawer(it.id, true);
 });
@@ -637,8 +734,8 @@ drawer.addEventListener('click', e => {
   if (e.target.closest('#d-delete')) {
     if (!confirm(`Delete “${it.name || 'Untitled'}” and all its notes?`)) return;
     state.items = state.items.filter(i => i.id !== it.id);
-    state.items.forEach(i => { if (i.parentId === it.id) i.parentId = null; });
-    save(); ui.lastNewId = null; closeDrawer(); return;
+    state.items.forEach(i => { if (i.parentId === it.id) { i.parentId = null; touch(i); } });
+    markDeleted(it.id); ui.lastNewId = null; closeDrawer(); return;
   }
   const flt = e.target.closest('[data-filter]');
   if (flt) { ui.noteLabel = ui.noteLabel === flt.dataset.filter ? '' : flt.dataset.filter; return renderNotes(); }
@@ -693,5 +790,5 @@ document.addEventListener('click', e => {
   if (e.target.closest('.menu-pop button')) m.open = false;
 });
 
-renderAll();
+init();
 })();
