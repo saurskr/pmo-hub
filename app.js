@@ -18,18 +18,18 @@ const STATUSES = {
 
 // Each status has its own glyph so it never relies on colour alone.
 const GLYPH = {
-  offtrack:   '<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M5.3 5.3l5.4 5.4M10.7 5.3l-5.4 5.4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>',
-  atrisk:     '<path d="M8 1.2l7 12.6H1z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6v3.6M8 11.4v.2" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>',
-  ontrack:    '<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.2l2.3 2.3 4.2-4.6" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
-  onhold:     '<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M6.2 5.2v5.6M9.8 5.2v5.6" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/>',
+  offtrack:   '<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M5.3 5.3l5.4 5.4M10.7 5.3l-5.4 5.4" class="cut" stroke-width="1.8" stroke-linecap="round"/>',
+  atrisk:     '<path d="M8 1.2l7 12.6H1z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6v3.6M8 11.4v.2" class="cut" stroke-width="1.7" stroke-linecap="round"/>',
+  ontrack:    '<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.2l2.3 2.3 4.2-4.6" fill="none" class="cut" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  onhold:     '<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M6.2 5.2v5.6M9.8 5.2v5.6" class="cut" stroke-width="1.9" stroke-linecap="round"/>',
   notstarted: '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.4 2"/>',
   done:       '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 8.2l2.2 2.2 3.8-4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
 };
 
 const DEFAULT_LABELS = ['Update', 'Decision', 'Risk', 'Blocker', 'Action', 'Question', 'FYI'];
 const LABEL_COLORS = {
-  Update: '#3b82c4', Decision: '#7a5af8', Risk: '#e0a100', Blocker: '#d6403a',
-  Action: '#2f9e5b', Question: '#c4467d', FYI: '#667085',
+  Update: 'var(--blue)', Decision: 'var(--purple)', Risk: 'var(--amber)', Blocker: 'var(--red)',
+  Action: 'var(--green)', Question: 'var(--pink)', FYI: 'var(--muted)',
 };
 
 function statusIcon(s, size = 18) {
@@ -521,6 +521,22 @@ drawer.addEventListener('click', e => {
       renderNotes(); renderAll();
     }
   }
+});
+
+/* ---------- theme ---------- */
+
+const THEMES = ['auto', 'light', 'dark'];
+function applyTheme(t) {
+  if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  $('#btn-theme').textContent = '◐ ' + t[0].toUpperCase() + t.slice(1);
+}
+let theme = 'auto';
+try { theme = localStorage.getItem('pmo-hub-theme') || 'auto'; } catch (e) { /* ignore */ }
+applyTheme(theme);
+$('#btn-theme').addEventListener('click', () => {
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % 3];
+  try { theme === 'auto' ? localStorage.removeItem('pmo-hub-theme') : localStorage.setItem('pmo-hub-theme', theme); } catch (e) { /* ignore */ }
+  applyTheme(theme);
 });
 
 /* ---------- data menu ---------- */
