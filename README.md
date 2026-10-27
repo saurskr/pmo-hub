@@ -3,7 +3,35 @@
 A lightweight hub for IT leadership to keep a finger on many projects and major
 items at once — without turning into a task tracker.
 
-Open `index.html` in a browser. No build step, no server, no dependencies.
+## Run it
+
+```
+npm start            # or: node server.js   (needs Node 18+, no other dependencies)
+```
+
+Open http://localhost:3000. On first run with no users, the server creates
+`admin@example.com` with a random password and prints it in the terminal.
+Add or reset users with:
+
+```
+node server.js add-user someone@example.com 'a-password' [admin]
+```
+
+## Layout
+
+- `public/login.html` — sign-in (always light theme). Replace `public/logo.png` with your logo.
+- `public/index.html` — Summary (sidebar + page bar + content).
+- `public/admin.html` — Administration (admins only). Currently: SAML SSO settings.
+- `public/theme.css` — all colours and style tokens (light = Warm Paper, dark = Midnight).
+
+## Login & storage (temporary)
+
+- Users are kept in `data/users.txt` as `email|role|salt|hash` (salted scrypt hashes,
+  not plain text). Secure storage is a later stage. `data/` is git-ignored.
+- SSO settings are kept in `data/config.json`.
+- **Not done yet:** the SAML sign-in flow itself. Administration stores the Entra
+  settings and the login page has the SSO button, but it does not sign anyone in yet.
+- Project data is still stored per-browser (see below), not per user or on the server.
 
 ## What it does
 

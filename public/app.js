@@ -523,22 +523,6 @@ drawer.addEventListener('click', e => {
   }
 });
 
-/* ---------- theme ---------- */
-
-const THEMES = ['auto', 'light', 'dark'];
-function applyTheme(t) {
-  if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
-  $('#btn-theme').textContent = '◐ ' + t[0].toUpperCase() + t.slice(1);
-}
-let theme = 'auto';
-try { theme = localStorage.getItem('pmo-hub-theme') || 'auto'; } catch (e) { /* ignore */ }
-applyTheme(theme);
-$('#btn-theme').addEventListener('click', () => {
-  theme = THEMES[(THEMES.indexOf(theme) + 1) % 3];
-  try { theme === 'auto' ? localStorage.removeItem('pmo-hub-theme') : localStorage.setItem('pmo-hub-theme', theme); } catch (e) { /* ignore */ }
-  applyTheme(theme);
-});
-
 /* ---------- data menu ---------- */
 
 $('#btn-export').addEventListener('click', () => {

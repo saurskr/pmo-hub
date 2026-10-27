@@ -2,7 +2,7 @@
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 var(--font); }
 h1, h2 { margin: 0; }
-h1 { font-size: 18px; }
+h1 { font-size: 18px; font-weight: 700; }
 h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-sm); padding: 6px 12px; }
@@ -15,19 +15,16 @@ input, select, textarea { background: var(--surface); border: 1px solid var(--li
 input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .muted { color: var(--muted); }
 
-.top { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--head); color: var(--head-text); position: sticky; top: 0; z-index: 20; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
 .top-actions { display: flex; gap: 8px; align-items: center; }
-.top button, .menu summary { background: transparent; border-color: color-mix(in srgb, var(--head-text) 35%, transparent); color: var(--head-text); }
-.top button:hover { background: color-mix(in srgb, var(--head-text) 14%, transparent); }
-.top button.primary { background: var(--head-text); color: var(--head); border-color: transparent; }
 .menu { position: relative; }
 .menu summary { list-style: none; cursor: pointer; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 4px 12px; font-size: 18px; line-height: 1.3; }
 .menu summary::-webkit-details-marker { display: none; }
 .menu-pop { position: absolute; right: 0; top: calc(100% + 6px); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: 6px; display: flex; flex-direction: column; min-width: 190px; z-index: 30; }
-.menu-pop button { border: 0; text-align: left; background: none; color: var(--text); }
+.menu-pop button { border: 0; text-align: left; background: none; }
 .menu-pop button:hover { background: var(--surface-2); }
 
-main { max-width: 1280px; margin: 0 auto; padding: 16px 20px 60px; display: flex; flex-direction: column; gap: 16px; }
+main { max-width: 1280px; margin: 0 auto; padding: 16px 24px 60px; display: flex; flex-direction: column; gap: 16px; }
 
 .stats { display: flex; flex-wrap: wrap; gap: 8px; }
 .stat { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
