@@ -87,11 +87,7 @@ const showSaving = () => { const el = $('#save-status'); if (!el || el.dataset.k
 const hasPending = () => pending.replace || pending.labels || pending.upserts.size > 0 || pending.deletes.size > 0;
 
 async function api(method, path, body) {
-  const r = await fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
-  if (r.status === 401) { location.href = '/login.html'; throw new Error('Signed out'); }
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(data.error || `Request failed (${r.status})`), { status: r.status });
-  return data;
+  return window.pmoApi(method, path, body);
 }
 
 function scheduleSync(delay = 500) {
@@ -150,7 +146,7 @@ async function init() {
   } else {
     // First run on this store: bring over anything saved in this browser, otherwise start with samples.
     const local = loadLocal();
-    if (local && local.items.length && confirm(`This browser has ${local.items.length} entries from before shared storage was added.\n\nCopy them into the shared store?`)) state = local;
+    if (local && local.items.length && confirm(`This browser has ${local.items.length} entries saved by an earlier version.\n\nKeep them?`)) state = local;
     else if (local && local.items.length) state = { items: [], labels: DEFAULT_LABELS.slice() };
     else state = seed();
     save();

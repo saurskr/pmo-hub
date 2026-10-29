@@ -40,11 +40,7 @@
     el.title = detail || '';
   }
   async function api(method, path, body) {
-    const r = await fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
-    if (r.status === 401) { location.href = '/login.html'; throw new Error('Signed out'); }
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || `Request failed (${r.status})`);
-    return data;
+    return window.pmoApi(method, path, body);
   }
   // Wait for the server before changing the screen, so what you see is what was saved.
   async function save(change) {

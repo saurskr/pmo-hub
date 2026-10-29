@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings – PMO Hub</title>
+<script src="theme-init.js"></script>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="shell">
+<aside class="side" id="side"></aside>
+<div class="content">
+<header class="top"><h1>Settings</h1></header>
+<div class="admin">
+
+  <section class="card">
+    <h2>Where your data is kept</h2>
+    <p>PMO Hub runs entirely in your browser. Entries and notes are saved in this browser on this device — there is no server and no sign-in. Clearing this site's data in the browser would remove them, so keep a backup file (below).</p>
+    <p id="counts"></p>
+  </section>
+
+  <section class="card" id="file-card">
+    <h2>Backup file (recommended)</h2>
+    <p>Pick a file — for example inside your OneDrive folder — and every change is also written there. On another device, point PMO Hub at the same file to carry on.</p>
+    <div id="file-unsupported" class="msg" hidden>This browser can't keep a file up to date automatically (it needs Chrome or Edge, opened from <code>https://</code> or <code>http://localhost</code>). Use Download / Restore below instead.</div>
+    <div id="file-status" class="msg" role="status"></div>
+    <div class="actions" id="file-actions">
+      <button type="button" class="primary" id="f-create">Create backup file…</button>
+      <button type="button" id="f-existing">Use an existing file…</button>
+      <button type="button" id="f-reconnect" hidden>Allow access again</button>
+      <button type="button" id="f-load" hidden>Load from file now</button>
+      <button type="button" id="f-off" hidden>Stop using this file</button>
+    </div>
+    <small class="muted">"Use an existing file" replaces what is in this browser with the file's contents.</small>
+  </section>
+
+  <section class="card">
+    <h2>Download / Restore</h2>
+    <p>A complete copy of everything — entries, pins and notes — as one JSON file. Works in any browser.</p>
+    <div id="bk-msg" class="msg" role="status" hidden></div>
+    <div class="actions">
+      <button type="button" id="b-download">Download backup</button>
+      <button type="button" id="b-restore">Restore from file…</button>
+      <input type="file" id="b-file" accept="application/json" hidden>
+    </div>
+  </section>
+
+</div>
+</div>
+</div>
+<script src="local-api.js"></script>
+<script src="file-sync.js"></script>
+<script src="status.js"></script>
+<script src="shell.js"></script>
+<script src="settings.js"></script>
+</body>
+</html>
