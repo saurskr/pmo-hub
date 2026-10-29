@@ -1,0 +1,57 @@
+/* PMO Hub theme tokens. Light = "Warm Paper", dark = "Midnight".
+   Change the look of the whole app here; styles.css only uses these names. */
+:root {
+  color-scheme: light;
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --r: 12px;            /* panels, cards */
+  --r-sm: 8px;          /* buttons, inputs */
+
+  --bg: #f7f4ee;
+  --surface: #fffdf9;
+  --surface-2: #f1ece2;
+  --text: #2b2722;
+  --muted: #7a7266;
+  --line: #e6dfd2;
+  --accent: #0f6e6e;
+  --accent-text: #ffffff;
+  --head: #0f4c4c;      /* top bar */
+  --head-text: #ffffff;
+  --shadow: 0 8px 30px rgba(60, 40, 10, .18);
+
+  /* status */
+  --red: #c8402f; --amber: #d98e04; --green: #3f8f55;
+  --blue: #4a7fb0; --grey: #a39a8b; --done: #7b7466;
+  --on-status: #ffffff; /* glyph colour drawn on top of a status colour */
+
+  /* note labels (the rest reuse status colours) */
+  --purple: #8b6cf0; --pink: #c4467d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --r: 6px; --r-sm: 5px;
+    --bg: #0f1420; --surface: #181f2e; --surface-2: #212a3d;
+    --text: #e7ebf3; --muted: #9aa5ba; --line: #2a3347;
+    --accent: #6ea8ff; --accent-text: #0b1220;
+    --head: #0a0e17; --head-text: #e7ebf3;
+    --shadow: 0 8px 30px rgba(0, 0, 0, .6);
+    --red: #ff6b6b; --amber: #ffc233; --green: #3ddc84;
+    --blue: #5cb3ff; --grey: #74809a; --done: #8d9ab3;
+    --on-status: #0b1220;
+    --purple: #a58bff; --pink: #f07aa8;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --r: 6px; --r-sm: 5px;
+  --bg: #0f1420; --surface: #181f2e; --surface-2: #212a3d;
+  --text: #e7ebf3; --muted: #9aa5ba; --line: #2a3347;
+  --accent: #6ea8ff; --accent-text: #0b1220;
+  --head: #0a0e17; --head-text: #e7ebf3;
+  --shadow: 0 8px 30px rgba(0, 0, 0, .6);
+  --red: #ff6b6b; --amber: #ffc233; --green: #3ddc84;
+  --blue: #5cb3ff; --grey: #74809a; --done: #8d9ab3;
+  --on-status: #0b1220;
+  --purple: #a58bff; --pink: #f07aa8;
+}

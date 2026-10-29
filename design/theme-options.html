@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PMO Hub – theme options</title>
+<style>
+body{margin:0;background:#e9ecf0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:#222}
+h1{font-size:18px;margin:0;padding:18px 24px 4px}p.lead{margin:0;padding:0 24px 16px;color:#555}
+.wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:20px;padding:0 24px 40px}
+.theme{background:var(--bg);color:var(--text);border-radius:12px;overflow:hidden;border:1px solid var(--line);font-family:var(--font)}
+.theme h2{margin:0;padding:10px 16px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;background:var(--head);color:var(--headtext)}
+.theme .body{padding:16px;display:flex;flex-direction:column;gap:14px}
+.desc{color:var(--muted);font-size:13px;margin:0}
+.sw{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.sw div{border-radius:var(--r);height:44px;font-size:10px;padding:4px;display:flex;align-items:flex-end;border:1px solid var(--line);line-height:1.1}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.tiles{display:flex;gap:6px;flex-wrap:wrap}
+.tile{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.tile b{font-size:16px}
+.ic{width:16px;height:16px;border-radius:50%;background:var(--c);display:inline-block;flex:none}
+.ic.tri{border-radius:0;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.ic.ring{background:none;border:2px dashed var(--c)}
+.chip{display:inline-block;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;line-height:20px;background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 38%,transparent)}
+.row{display:grid;grid-template-columns:22px 1fr;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}.row b{display:block}.row small{color:var(--muted)}
+.gantt{padding:10px 12px;display:flex;flex-direction:column;gap:8px;position:relative}
+.bar{height:14px;border-radius:calc(var(--r)*.6);background:var(--c)}
+.bar.h{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--c) 35%,transparent) 0 5px,color-mix(in srgb,var(--c) 12%,transparent) 5px 10px);border:1px solid var(--c)}
+.today{position:absolute;top:0;bottom:0;left:42%;border-left:2px solid var(--accent)}
+.btn{align-self:flex-start;background:var(--accent);color:var(--accenttext);border-radius:var(--r);padding:6px 12px;font-weight:600}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 6px}
+</style></head><body>
+<h1>PMO Hub – theme options</h1>
+<p class="lead">Same content in three looks. Swatches show the tokens each theme defines.</p>
+<div class="wrap" id="wrap"></div>
+<script>
+const themes=[
+{name:"A · Calm Slate",desc:"Cool greys, indigo accent. Neutral and corporate; lets status colours stand out.",
+ vars:{bg:"#f4f6f9",surface:"#ffffff",text:"#1c2330",muted:"#667085",line:"#e1e5eb",accent:"#3b5bdb",accenttext:"#fff",head:"#1f2a44",headtext:"#fff",r:"8px",font:"system-ui,-apple-system,'Segoe UI',sans-serif",shadow:"0 1px 2px rgba(16,24,40,.06)"},
+ st:{off:"#d6403a",risk:"#e0a100",on:"#2f9e5b",hold:"#3b82c4",not:"#98a2b3",done:"#6b7a90"}},
+{name:"B · Warm Paper",desc:"Warm off-white, deep teal accent, softer corners. Calmer and less 'dashboard-y'.",
+ vars:{bg:"#f7f4ee",surface:"#fffdf9",text:"#2b2722",muted:"#7a7266",line:"#e6dfd2",accent:"#0f6e6e",accenttext:"#fff",head:"#0f4c4c",headtext:"#fff",r:"12px",font:"'Segoe UI',system-ui,sans-serif",shadow:"0 1px 3px rgba(60,40,10,.08)"},
+ st:{off:"#c8402f",risk:"#d98e04",on:"#3f8f55",hold:"#4a7fb0",not:"#a39a8b",done:"#7b7466"}},
+{name:"C · Midnight",desc:"Dark navy with bright status colours. High contrast, good for a screen left open all day.",
+ vars:{bg:"#0f1420",surface:"#181f2e",text:"#e7ebf3",muted:"#9aa5ba",line:"#2a3347",accent:"#6ea8ff",accenttext:"#0b1220",head:"#0a0e17",headtext:"#e7ebf3",r:"6px",font:"system-ui,-apple-system,'Segoe UI',sans-serif",shadow:"none"},
+ st:{off:"#ff6b6b",risk:"#ffc233",on:"#3ddc84",hold:"#5cb3ff",not:"#74809a",done:"#8d9ab3"}}];
+const labels={Update:"#3b82c4",Decision:"#8b6cf0",Risk:"#e0a100",Blocker:"#d6403a",Action:"#2f9e5b"};
+const lab=(t,s)=>({Update:s.hold,Decision:"#8b6cf0",Risk:s.risk,Blocker:s.off,Action:s.on}[t]);
+document.getElementById('wrap').innerHTML=themes.map(t=>{
+ const s=t.st,v=Object.entries(t.vars).map(([k,x])=>`--${k}:${x}`).join(';');
+ const sw=[["bg",t.vars.bg],["surface",t.vars.surface],["text",t.vars.text],["accent",t.vars.accent],["Off",s.off],["At risk",s.risk],["On track",s.on],["On hold",s.hold],["Not started",s.not],["Done",s.done],["Decision","#8b6cf0"],["Line",t.vars.line]];
+ const dark=t.name.startsWith("C");
+ return `<div class="theme" style="${v}"><h2>${t.name}</h2><div class="body">
+ <p class="desc">${t.desc}</p>
+ <div class="sw">${sw.map(([n,c])=>`<div style="background:${c};color:${(n=="bg"||n=="surface"||n=="Line")?(dark?'#fff':'#333'):'#fff'}">${n}<br>${c}</div>`).join('')}</div>
+ <div class="btn">+ New entry</div>
+ <div class="tiles">${[["off","Off track",1],["risk","At risk",2],["on","On track",3],["hold","On hold",1],["not","Not started",2]].map(([k,n,c])=>`<div class="tile"><span class="ic ${k=='risk'?'tri':k=='not'?'ring':''}" style="--c:${s[k]}"></span><b>${c}</b>${n}</div>`).join('')}</div>
+ <div class="card">
+  <div class="row"><span class="ic tri" style="--c:${s.risk}"></span><div><b>ERP migration</b><small>Finance Systems · 29 Jun → 26 Mar</small><div style="margin:4px 0">Cutover holding, data-mapping sign-off is late.</div><span class="chip" style="--c:${lab('Risk',s)}">Risk</span> <span class="chip" style="--c:#8b6cf0">Decision</span></div></div>
+  <div class="row"><span class="ic" style="--c:${s.on}"></span><div><b>Zero-trust rollout</b><small>Infrastructure · 28 Aug → 25 Jan</small><div style="margin:4px 0">Phase 1 complete, branch sites next.</div><span class="chip" style="--c:${lab('Update',s)}">Update</span></div></div>
+  <div class="row"><span class="ic" style="--c:${s.off}"></span><div><b>Data mapping sign-off</b><small>Finance · <span style="color:${s.off};font-weight:600">Overdue 5d</span></small><div style="margin:4px 0"><span class="chip" style="--c:${lab('Blocker',s)}">Blocker</span></div></div></div>
+ </div>
+ <div class="card gantt"><div class="today"></div>
+  <div class="bar" style="--c:${s.risk};margin-left:5%;width:85%"></div>
+  <div class="bar" style="--c:${s.off};margin-left:20%;width:25%"></div>
+  <div class="bar h" style="--c:${s.not};margin-left:48%;width:30%"></div>
+  <div class="bar" style="--c:${s.on};margin-left:15%;width:60%"></div>
+  <div class="bar h" style="--c:${s.hold};margin-left:28%;width:45%"></div>
+  <div class="bar" style="--c:${s.done};margin-left:2%;width:32%"></div>
+ </div></div></div>`}).join('');
+</script></body></html>
